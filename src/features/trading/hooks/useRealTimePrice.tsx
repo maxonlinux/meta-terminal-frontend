@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 import useWebSocket from "react-use-websocket";
 import useSWR, { mutate as swrMutate } from "swr";
-import { multiplexer } from "@/api/client";
 import { useWebsocketBaseUrl } from "@/features/trading/hooks/useWebsocketBaseUrl";
 import { useWsReconnectStatusStore } from "@/stores/useWsReconnectStatusStore";
 
@@ -44,7 +43,10 @@ export function useRealTimePrice(symbol: string) {
   const { data: last } = useSWR(
     symbol ? `price:${symbol}` : null,
     async () => {
-      const res = await multiplexer["/prices"].get({ query: { symbol } });
+      const res = await fetch(`/proxy/multiplexer/prices?symbol=${symbol}`, {
+        credentials: "include",
+        method: "GET",
+      });
       if (!res.ok) return null;
 
       const body = await res.json();

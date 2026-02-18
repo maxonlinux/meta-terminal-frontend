@@ -1,7 +1,6 @@
 "use client";
 
 import useSWR from "swr";
-import { apiJson } from "@/api/http";
 import type {
   TradingCategory,
   TradingHistoryOrder,
@@ -15,17 +14,19 @@ export function useOrderHistory(params: {
   const { data, error, isLoading } = useSWR(
     `history:orders:${params.category}:${params.symbol}:${params.limit ?? ""}`,
     async () => {
-      const body = await apiJson<{ orders: TradingHistoryOrder[] }>(
-        "/user/history/orders",
+      const query = new URLSearchParams({
+        category: params.category,
+        symbol: params.symbol,
+        ...(params.limit ? { limit: String(params.limit) } : {}),
+      }).toString();
+      const res = await fetch(
+        `/proxy/main/api/v1/user/history/orders?${query}`,
         {
-          query: {
-            category: params.category,
-            symbol: params.symbol,
-            limit: params.limit,
-          },
+          method: "GET",
+          credentials: "include",
         },
       );
-
+      const body = (await res.json()) as { orders: TradingHistoryOrder[] };
       return body.orders;
     },
   );

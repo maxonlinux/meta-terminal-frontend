@@ -1,20 +1,19 @@
-import { motion, useInView } from "motion/react";
-import Image from "next/image";
+import { useInView, motion } from "motion/react";
 import { useRef } from "react";
-
-const iconIds = Array.from({ length: 15 }, (_, i) => i + 1);
 
 function PreIPO() {
   const ref = useRef(null);
   const isInView = useInView(ref);
 
   return (
-    <div className="grid grid-cols-5 gap-6 min-w-125" ref={ref}>
+    <div className="grid grid-cols-5 gap-6 min-w-[500px]" ref={ref}>
       {isInView &&
-        iconIds.map((id, i) => (
-          <motion.div
-            key={id}
-            className="relative size-full rounded-[20%]"
+        Array.from({ length: 15 }).map((_, i) => (
+          <motion.img
+            key={i}
+            src={`/landing/asset-icons/${i + 1}.svg`}
+            alt="asset-icon"
+            className="size-full rounded-[20%]"
             initial={{
               opacity: 0,
               x: 10 + i * 10,
@@ -29,15 +28,7 @@ function PreIPO() {
               x: 0,
               y: 0,
             }}
-          >
-            <Image
-              src={`/landing/asset-icons/${id}.svg`}
-              alt="asset-icon"
-              fill
-              className="rounded-[20%] object-contain"
-              sizes="100px"
-            />
-          </motion.div>
+          />
         ))}
     </div>
   );

@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { Form } from "react-aria-components";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { apiFetch } from "@/api/http";
 import { CustomTextField } from "@/components/ui/CustomTextField";
 import { SubmitButton } from "@/features/auth/components/SubmitButton";
 import type { LoginForm as LoginFormValues } from "@/features/auth/types";
@@ -23,8 +22,10 @@ export default function LoginForm() {
   });
 
   const onSubmit = async (data: LoginFormValues) => {
-    const res = await apiFetch("/auth/login", {
+    const res = await fetch("/proxy/main/api/v1/auth/login", {
+      credentials: "include",
       method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
     if (res.ok) {

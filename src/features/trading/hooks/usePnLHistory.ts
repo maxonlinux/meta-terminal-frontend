@@ -1,5 +1,4 @@
 import useSWR from "swr";
-import { apiJson } from "@/api/http";
 import type { TradingCategory, TradingPnL } from "@/features/trading/types";
 
 export function usePnLHistory(params: {
@@ -10,13 +9,16 @@ export function usePnLHistory(params: {
   const { data, error, isLoading } = useSWR(
     `history:pnl:${params.category}:${params.symbol}:${params.limit ?? ""}`,
     async () => {
-      const body = await apiJson<{ pnl: TradingPnL[] }>("/user/history/pnl", {
-        query: {
-          category: params.category,
-          symbol: params.symbol,
-          limit: params.limit,
-        },
+      const query = new URLSearchParams({
+        category: params.category,
+        symbol: params.symbol,
+        ...(params.limit ? { limit: String(params.limit) } : {}),
+      }).toString();
+      const res = await fetch(`/proxy/main/api/v1/user/history/pnl?${query}`, {
+        method: "GET",
+        credentials: "include",
       });
+      const body = (await res.json()) as { pnl: TradingPnL[] };
       return body.pnl;
     },
   );

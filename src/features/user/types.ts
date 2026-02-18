@@ -67,10 +67,16 @@ export type FundingRequest = {
 };
 
 export type FundingRequestInput = {
-  walletId: number;
   amount: number;
   asset?: string;
-  destination?: string;
+};
+
+export type WithdrawRequestInput = FundingRequestInput & {
+  destination: string;
+};
+
+export type DepositRequestInput = FundingRequestInput & {
+  walletId: number;
 };
 
 export type KycFile = {

@@ -1,5 +1,4 @@
 import useSWR from "swr";
-import { apiFetch, apiJson } from "@/api/http";
 import type { KycRequest } from "@/features/user/types";
 
 export function useKyc() {
@@ -10,21 +9,27 @@ export function useKyc() {
     mutate,
   } = useSWR<KycRequest | null>("user:kyc", async () => {
     try {
-      return await apiJson<KycRequest>("/user/kyc");
+      const res = await fetch("/proxy/main/api/v1/user/kyc", {
+        method: "GET",
+        credentials: "include",
+      });
+      if (!res.ok) return null;
+      const body = await res.json();
+      return body;
     } catch {
       return null;
     }
   });
 
   const submitKyc = async (form: FormData) => {
-    const res = await apiFetch("/user/kyc", {
+    const res = await fetch("/proxy/main/api/v1/user/kyc", {
       method: "POST",
+      credentials: "include",
       body: form,
     });
     if (!res.ok) return null;
     const body = await res.json();
     mutate(body);
-    return body as KycRequest;
   };
 
   return { kyc, submitKyc, isLoading, error };

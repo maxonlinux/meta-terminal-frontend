@@ -1,4 +1,3 @@
-import { apiFetch } from "@/api/http";
 import { useOtpActionStore } from "@/stores/useOtpActionStore";
 
 export const useUserPassword = () => {
@@ -8,7 +7,8 @@ export const useUserPassword = () => {
     oldPassword: string;
     newPassword: string;
   }) => {
-    const res = await apiFetch("/user/settings/password", {
+    const res = await fetch("/proxy/main/api/v1/user/settings/password", {
+      credentials: "include",
       method: "PUT",
       body: JSON.stringify(data),
     });

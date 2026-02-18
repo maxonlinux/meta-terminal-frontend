@@ -1,8 +1,8 @@
 import useSWR from "swr";
-import { apiFetch, apiJson } from "@/api/http";
 import type {
+  DepositRequestInput,
   FundingRequest,
-  FundingRequestInput,
+  WithdrawRequestInput,
 } from "@/features/user/types";
 import { useOtpActionStore } from "@/stores/useOtpActionStore";
 
@@ -15,15 +15,21 @@ export const useUserTransactions = () => {
     isLoading,
     mutate,
   } = useSWR<FundingRequest[]>("user:transactions", async () => {
-    return await apiJson<FundingRequest[]>("/user/funding");
+    const res = await fetch("/proxy/main/api/v1/user/funding", {
+      method: "GET",
+      credentials: "include",
+    });
+    const body = await res.json();
+    return body;
   });
 
-  const createWithdrawalTransaction = async (data: FundingRequestInput) => {
-    const res = await apiFetch("/user/funding/withdraw", {
+  const createWithdrawalTransaction = async (data: WithdrawRequestInput) => {
+    const res = await fetch("/proxy/main/api/v1/user/funding/withdraw", {
       method: "POST",
+      credentials: "include",
       body: JSON.stringify({
         asset: data.asset,
-        amount: data.amount.toString(),
+        amount: String(data.amount),
         destination: data.destination,
       }),
     });
@@ -37,12 +43,13 @@ export const useUserTransactions = () => {
     return await res.json();
   };
 
-  const createDepositTransaction = async (data: FundingRequestInput) => {
-    const res = await apiFetch("/user/funding/deposit", {
+  const createDepositTransaction = async (data: DepositRequestInput) => {
+    const res = await fetch("/proxy/main/api/v1/user/funding/deposit", {
       method: "POST",
+      credentials: "include",
       body: JSON.stringify({
         walletId: data.walletId,
-        amount: data.amount.toString(),
+        amount: String(data.amount),
       }),
     });
 

@@ -41,7 +41,7 @@ const Trust = () => {
       <h3 className="text-6xl max-sm:text-[8vw] font-bold text-center">
         We are trusted by
       </h3>
-      <div className="text-7xl max-sm:text-[8vw] font-extrabold text-center text-gradient-animated bg-linear-to-r from-accent via-green-400 to-accent">
+      <div className="text-7xl max-sm:text-[8vw] font-extrabold text-center text-gradient-animated bg-gradient-to-r from-accent via-green-400 to-accent">
         <Counter from={0} to={200000} duration={2} />+
       </div>
       <h3 className="text-4xl max-sm:text-[5vw] font-bold text-center">

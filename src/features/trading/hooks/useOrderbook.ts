@@ -110,7 +110,6 @@ export function useOrderbook(params: {
 }) {
   const wsBase = wsBaseFromWindow();
   const url =
-    wsUrl({ base: wsBase, path: "/ws/market" }) ??
     wsUrl({ base: wsBase, path: "/proxy/main/ws/market" });
 
   const [bidsMap, setBidsMap] = useState<Map<string, string> | null>(null);

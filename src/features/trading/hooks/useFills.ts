@@ -1,7 +1,6 @@
 "use client";
 
 import useSWR from "swr";
-import { apiJson } from "@/api/http";
 import type { TradingCategory, TradingFill } from "@/features/trading/types";
 
 export function useFills(params: {
@@ -12,12 +11,18 @@ export function useFills(params: {
   const { data, error, isLoading } = useSWR(
     `history:fills:${params.category}:${params.symbol}`,
     async () => {
-      const body = await apiJson<{ fills: TradingFill[] }>(
-        "/user/history/fills",
+      const query = new URLSearchParams({
+        category: params.category,
+        symbol: params.symbol,
+      }).toString();
+      const res = await fetch(
+        `/proxy/main/api/v1/user/history/fills?${query}`,
         {
-          query: { category: params.category, symbol: params.symbol },
+          method: "GET",
+          credentials: "include",
         },
       );
+      const body = (await res.json()) as { fills: TradingFill[] };
       return body.fills;
     },
   );

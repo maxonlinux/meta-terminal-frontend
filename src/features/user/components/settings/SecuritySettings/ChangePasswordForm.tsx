@@ -3,7 +3,6 @@
 import { Form } from "react-aria-components";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { apiFetch } from "@/api/http";
 import { CustomTextField } from "@/components/ui/CustomTextField";
 import { useOtpActionStore } from "@/stores/useOtpActionStore";
 import { SubmitButton } from "../SubmitButton";
@@ -24,8 +23,9 @@ export function ChangePasswordForm() {
     oldPassword: string;
     newPassword: string;
   }) => {
-    const res = await apiFetch("/user/settings/password", {
+    const res = await fetch("/proxy/main/api/v1/user/settings/password", {
       method: "PUT",
+      credentials: "include",
       body: JSON.stringify(data),
     });
 

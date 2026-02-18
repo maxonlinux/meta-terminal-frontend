@@ -1,5 +1,4 @@
 import useSWR from "swr";
-import { apiJson } from "@/api/http";
 import type { UserBalance } from "@/features/user/types";
 
 export const useUserBalances = () => {
@@ -10,7 +9,13 @@ export const useUserBalances = () => {
     isLoading,
   } = useSWR<UserBalance[]>("user:balances", async () => {
     try {
-      return await apiJson<UserBalance[]>("/user/balances");
+      const res = await fetch("/proxy/main/api/v1/user/balances", {
+        method: "GET",
+        credentials: "include",
+      });
+      const body = await res.json();
+      if (!res.ok) return [];
+      return body;
     } catch {
       return [];
     }

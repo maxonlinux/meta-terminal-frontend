@@ -1,5 +1,4 @@
 import useSWR from "swr";
-import { apiFetch, apiJson } from "@/api/http";
 import type { UserSettings } from "@/features/user/types";
 
 export const useUserSettings = () => {
@@ -10,7 +9,13 @@ export const useUserSettings = () => {
     mutate,
   } = useSWR<UserSettings | null>("user:settings", async () => {
     try {
-      return await apiJson<UserSettings>("/user/settings");
+      const res = await fetch("/proxy/main/api/v1/user/settings", {
+        credentials: "include",
+        method: "GET",
+      });
+      const body = await res.json();
+      if (!res.ok) return null;
+      return body;
     } catch {
       return null;
     }
@@ -19,10 +24,12 @@ export const useUserSettings = () => {
   const updateUserSettings = async (
     data: Partial<Omit<UserSettings, "id" | "userId">>,
   ) => {
-    const res = await apiFetch("/user/settings", {
+    const res = await fetch("/proxy/main/api/v1/user/settings", {
       method: "PATCH",
+      credentials: "include",
       body: JSON.stringify(data),
     });
+
     if (!res.ok) return null;
 
     mutate();

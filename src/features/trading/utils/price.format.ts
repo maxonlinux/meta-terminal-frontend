@@ -1,7 +1,4 @@
-export function clampPrecision(n: number): number {
-  if (!Number.isFinite(n)) return 0;
-  return Math.max(0, Math.min(18, Math.floor(n)));
-}
+import { clampPrecision } from "@/utils/format";
 
 export function formatFixed(value: number, decimals: number): string {
   if (!Number.isFinite(value)) return "--";

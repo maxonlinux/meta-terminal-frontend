@@ -1,5 +1,4 @@
 import useSWR from "swr";
-import { apiFetch, apiJson } from "@/api/http";
 import type { UserProfile } from "@/features/user/types";
 
 export const useUserProfile = () => {
@@ -9,7 +8,12 @@ export const useUserProfile = () => {
     isLoading,
   } = useSWR<UserProfile | null>(`user:profile`, async () => {
     try {
-      return await apiJson<UserProfile>("/user/profile");
+      const res = await fetch("/proxy/main/api/v1/user/profile", {
+        credentials: "include",
+        method: "GET",
+      });
+      const data = await res.json();
+      return data;
     } catch {
       return null;
     }
@@ -19,8 +23,9 @@ export const useUserProfile = () => {
     name?: string;
     surname?: string;
   }) => {
-    const res = await apiFetch("/user/profile", {
+    const res = await fetch("/proxy/main/api/v1/user/profile", {
       method: "PATCH",
+      credentials: "include",
       body: JSON.stringify(data),
     });
     if (!res.ok) return null;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ListBoxItem } from "react-aria-components";
 import { Skeleton } from "@/components/common/Skeleton";
 import { CustomSelect } from "@/components/ui/CustomSelect";
@@ -10,7 +10,7 @@ import {
   generateOrderbookGroupingOptions,
   groupOrderbook,
 } from "@/features/trading/utils/orderbook.grouping";
-import { formatFixed } from "@/features/trading/utils/price.format";
+import { formatFixed, spreadText } from "@/features/trading/utils/price.format";
 
 const ORDERS_LENGTH = 11;
 
@@ -91,23 +91,6 @@ function padLevels(levels: Level[], count: number): MaybeLevel[] {
   const n = Math.min(count, levels.length);
   for (let i = 0; i < n; i++) out[i] = levels[i] ?? null;
   return out;
-}
-
-function spreadText(params: {
-  bestBid: string | null;
-  bestAsk: string | null;
-  pricePrecision: number;
-}): string {
-  const bb = params.bestBid;
-  const ba = params.bestAsk;
-  if (!bb || !ba) return "--";
-
-  const bid = Number(bb);
-  const ask = Number(ba);
-  if (!Number.isFinite(bid) || !Number.isFinite(ask)) return "--";
-  if (ask < bid) return "--";
-
-  return formatFixed(ask - bid, params.pricePrecision);
 }
 
 function maxQtyOf(levels: MaybeLevel[]): number {
@@ -491,12 +474,20 @@ function OrderBookReady(params: {
   }, [viewAsks, params.bestAsk]);
 
   const spread = useMemo(() => {
+    const bestBid = params.bestBid ?? viewBestBid;
+    const bestAsk = params.bestAsk ?? viewBestAsk;
     return spreadText({
-      bestBid: viewBestBid,
-      bestAsk: viewBestAsk,
+      bestBid,
+      bestAsk,
       pricePrecision,
     });
-  }, [viewBestBid, viewBestAsk, pricePrecision]);
+  }, [
+    params.bestBid,
+    params.bestAsk,
+    viewBestBid,
+    viewBestAsk,
+    pricePrecision,
+  ]);
 
   const imbalance = useMemo(() => {
     return imbalancePctFromLevels({ bids: viewBids, asks: viewAsks });
@@ -586,6 +577,12 @@ export default function OrderBook(params: {
   category: string;
 }) {
   const [grouping, setGrouping] = useState<string>("");
+
+  useEffect(() => {
+    if (params.instrument.tickSize) {
+      setGrouping(params.instrument.tickSize);
+    }
+  }, [params.instrument.tickSize]);
 
   const { bids, asks, bestAsk, bestBid } = useOrderbook({
     category: params.category,

@@ -3,7 +3,6 @@
 import { ArrowRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { apiFetch } from "@/api/http";
 import { Button } from "@/components/ui/button";
 
 export function LogoutButton() {
@@ -12,7 +11,11 @@ export function LogoutButton() {
   const handleLogout = async () => {
     const toastId = toast.loading("Logging out...");
 
-    const res = await apiFetch("/auth/logout", { method: "POST" });
+    const res = await fetch("/proxy/main/api/v1/auth/logout", {
+      method: "POST",
+      credentials: "include",
+    });
+
     toast.dismiss(toastId);
 
     if (!res.ok) {

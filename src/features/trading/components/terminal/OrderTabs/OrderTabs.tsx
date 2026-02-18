@@ -14,7 +14,6 @@ import {
   Tabs,
 } from "react-aria-components";
 import { toast } from "sonner";
-import { apiFetch } from "@/api/http";
 import { Button } from "@/components/ui/button";
 import { CustomTextField } from "@/components/ui/CustomTextField";
 import { useFills } from "@/features/trading/hooks/useFills";
@@ -31,27 +30,14 @@ import type {
   TradingPosition,
 } from "@/features/trading/types";
 import { cls } from "@/utils/general.utils";
+import { formatDateTime, formatNumber } from "@/utils/format";
 
 type TradingPositionWithSide = TradingPosition & { side: "BUY" | "SELL" };
-
-function pad2(n: number) {
-  return String(n).padStart(2, "0");
-}
-
-function formatDateTime(input: number | string) {
-  const raw = typeof input === "string" ? Number(input) : input;
-  const ms =
-    Number.isFinite(raw) && raw > 1_000_000_000_000 ? raw / 1_000_000 : raw;
-  const d = new Date(ms);
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(
-    d.getDate(),
-  )} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
-}
 
 function formatMaybeNumber(raw: string, decimals = 8) {
   const n = Number(raw);
   if (!Number.isFinite(n) || n === 0) return "--";
-  return n.toLocaleString(undefined, { maximumFractionDigits: decimals });
+  return formatNumber(n, { maxDecimals: decimals });
 }
 
 function PositionTpSlModal(props: {
@@ -81,14 +67,17 @@ function PositionTpSlModal(props: {
     if (isSaving) return;
     setIsSaving(true);
 
-    const res = await apiFetch("/user/positions", {
-      method: "PATCH",
-      query: { symbol: props.position.symbol },
-      body: JSON.stringify({
-        tp: takeProfit.trim(),
-        sl: stopLoss.trim(),
-      }),
-    });
+    const res = await fetch(
+      `/proxy/main/api/v1/user/positions?symbol=${props.position.symbol}`,
+      {
+        method: "PATCH",
+        credentials: "include",
+        body: JSON.stringify({
+          tp: takeProfit.trim(),
+          sl: stopLoss.trim(),
+        }),
+      },
+    );
 
     setIsSaving(false);
 
@@ -156,11 +145,6 @@ function PositionTpSlModal(props: {
       </ModalOverlay>
     </DialogTrigger>
   );
-}
-
-function formatNumber(raw: string, decimals = 8) {
-  const n = Number(raw);
-  return n.toLocaleString(undefined, { maximumFractionDigits: decimals });
 }
 
 function isTradingCategory(raw: string): raw is TradingCategory {
@@ -277,8 +261,8 @@ function OpenOrdersTable(props: {
                 {direction}
               </td>
               <td className="text-left">{orderPrice}</td>
-              <td className="text-left">{formatNumber(o.qty, 8)}</td>
-              <td className="text-left">{formatNumber(o.filled, 8)}</td>
+              <td className="text-left">{formatMaybeNumber(o.qty, 8)}</td>
+              <td className="text-left">{formatMaybeNumber(o.filled, 8)}</td>
               <td className="text-left">{formatDateTime(o.updatedAt)}</td>
               <td className="text-left font-mono text-xs" title={String(o.id)}>
                 {String(o.id).slice(0, 8)}
@@ -326,8 +310,8 @@ function OrderHistoryTable(props: {
           const orderPrice =
             o.type === "LIMIT" ? formatMaybeNumber(o.price, 2) : "MKT";
 
-          const filledQty = formatNumber(o.filled, 8);
-          const orderQty = formatNumber(o.qty, 8);
+          const filledQty = formatMaybeNumber(o.filled, 8);
+          const orderQty = formatMaybeNumber(o.qty, 8);
 
           return (
             <tr
@@ -407,8 +391,8 @@ function TradeHistoryTable(props: {
               >
                 {direction}
               </td>
-              <td className="text-left">{formatNumber(t.price, 8)}</td>
-              <td className="text-left">{formatNumber(t.qty, 8)}</td>
+              <td className="text-left">{formatMaybeNumber(t.price, 8)}</td>
+              <td className="text-left">{formatMaybeNumber(t.qty, 8)}</td>
               <td className="text-left">Trade</td>
               <td className="text-left font-mono text-xs" title={String(t.id)}>
                 {String(t.id).slice(0, 8)}
@@ -448,15 +432,15 @@ function PnLHistoryTable(props: { rows: TradingPnL[] }) {
             >
               {row.side === 0 ? "BUY" : "SELL"}
             </td>
-            <td className="text-left">{formatNumber(row.qty)}</td>
-            <td className="text-left">{formatNumber(row.price)}</td>
+            <td className="text-left">{formatMaybeNumber(row.qty)}</td>
+            <td className="text-left">{formatMaybeNumber(row.price)}</td>
             <td
               className={cls("text-left font-semibold", {
                 "text-green-400": Number(row.realized) > 0,
                 "text-red-400": Number(row.realized) < 0,
               })}
             >
-              {formatNumber(row.realized)}
+              {formatMaybeNumber(row.realized)}
             </td>
           </tr>
         ))}
@@ -575,10 +559,10 @@ export default function OrderTabs(props: { symbol: string }) {
                       </td>
                       <td className="text-left">{openPosition.size}</td>
                       <td className="text-left">
-                        {formatNumber(openPosition.entryPrice, 8)}
+                        {formatMaybeNumber(openPosition.entryPrice, 8)}
                       </td>
                       <td className="text-left">
-                        x{formatNumber(openPosition.leverage, 1)}
+                        x{formatMaybeNumber(openPosition.leverage, 1)}
                       </td>
                       <td className="text-left">
                         {formatMaybeNumber(openPosition.liqPrice)}

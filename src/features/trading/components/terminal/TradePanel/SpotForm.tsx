@@ -2,7 +2,6 @@ import { Info, LockKeyhole } from "lucide-react";
 import { Button, Form, Group, Radio, RadioGroup } from "react-aria-components";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
-import { apiFetch } from "@/api/http";
 import { Skeleton } from "@/components/common/Skeleton";
 import { WithSkeleton } from "@/components/common/WithSkeleton";
 import { CustomNumericField } from "@/components/ui/CustomNumericField";
@@ -225,8 +224,9 @@ export function SpotForm({ instrument }: { instrument: TradingInstrument }) {
     const orderPrice = isLimit ? String(data.price) : null;
     const qty = String(data.amount);
 
-    const res = await apiFetch("/user/orders", {
+    const res = await fetch("/proxy/main/api/v1/user/orders", {
       method: "POST",
+      credentials: "include",
       body: JSON.stringify({
         symbol: instrument.symbol,
         category: "SPOT",

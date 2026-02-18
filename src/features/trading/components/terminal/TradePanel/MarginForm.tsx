@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Button, Form, type Key, ListBoxItem } from "react-aria-components";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
-import { apiFetch } from "@/api/http";
 import { Skeleton } from "@/components/common/Skeleton";
 import { WithSkeleton } from "@/components/common/WithSkeleton";
 import { CustomNumericField } from "@/components/ui/CustomNumericField";
@@ -99,11 +98,14 @@ export function MarginForm({ instrument }: { instrument: TradingInstrument }) {
 
     setSelectedLeverage(next);
 
-    const res = await apiFetch("/user/positions/leverage", {
-      method: "PUT",
-      query: { symbol: instrument.symbol },
-      body: JSON.stringify({ leverage: next }),
-    });
+    const res = await fetch(
+      `/proxy/main/api/v1/user/positions/leverage?symbol=${instrument.symbol}`,
+      {
+        credentials: "include",
+        method: "PUT",
+        body: JSON.stringify({ leverage: next }),
+      },
+    );
 
     if (!res.ok) {
       setSelectedLeverage(prev);
@@ -123,8 +125,9 @@ export function MarginForm({ instrument }: { instrument: TradingInstrument }) {
     const orderPrice = isLimit ? String(data.price) : null;
     const qty = String(data.qty);
 
-    const res = await apiFetch("/user/orders", {
+    const res = await fetch("/proxy/main/api/v1/user/orders", {
       method: "POST",
+      credentials: "include",
       body: JSON.stringify({
         symbol: instrument.symbol,
         category: "LINEAR",

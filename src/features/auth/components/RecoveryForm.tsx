@@ -8,7 +8,6 @@ import { Button, Form } from "react-aria-components";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { useCountdown } from "usehooks-ts";
-import { apiFetch } from "@/api/http";
 import { CustomOtpField } from "@/components/ui/CustomOtpFIeld";
 import { CustomTextField } from "@/components/ui/CustomTextField";
 import { SubmitButton } from "@/features/auth/components/SubmitButton";
@@ -37,8 +36,9 @@ const SubmitOtpForm = ({
   const isCooldown = count > 0;
 
   const submit = async (params: { username: string; otp: string }) => {
-    const res = await apiFetch("/auth/recovery", {
+    const res = await fetch("/proxy/main/api/v1/auth/recovery", {
       method: "POST",
+      credentials: "include",
       body: JSON.stringify({ username: params.username, otp: params.otp }),
     });
 
@@ -52,8 +52,9 @@ const SubmitOtpForm = ({
   };
 
   const regenerate = async () => {
-    const res = await apiFetch("/otp/generate", {
+    const res = await fetch("/proxy/main/api/v1/otp/generate", {
       method: "POST",
+      credentials: "include",
       body: JSON.stringify({ username }),
     });
 
@@ -145,8 +146,9 @@ export default function RecoveryForm() {
   const [otpRequested, setOtpRequested] = useState(false);
 
   const request = async (params: { username: string }) => {
-    const res = await apiFetch("/otp/generate", {
+    const res = await fetch("/proxy/main/api/v1/otp/generate", {
       method: "POST",
+      credentials: "include",
       body: JSON.stringify({ username: params.username }),
     });
 

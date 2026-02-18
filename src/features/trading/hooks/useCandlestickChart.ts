@@ -14,7 +14,6 @@ import {
 } from "lightweight-charts";
 import { useCallback, useEffect, useRef } from "react";
 import useSWRInfinite from "swr/infinite";
-import { multiplexer } from "@/api/client";
 import type { Candle } from "@/features/assets/types";
 import type { TradingInstrument } from "@/features/trading/types";
 import { chartOptions, seriesOptions } from "@/lib/chart-config";
@@ -73,19 +72,18 @@ export function useCandlestickChart(
   };
 
   const fetcher = async (key: CandlesKey) => {
-    const res = await multiplexer["/candles"].get({
-      query: key.before
-        ? {
-            symbol: key.symbol,
-            interval: key.interval,
-            before: key.before,
-            outputsize: key.outputsize,
-          }
-        : {
-            symbol: key.symbol,
-            interval: key.interval,
-            outputsize: key.outputsize,
-          },
+    const params = new URLSearchParams();
+    params.set("symbol", String(key.symbol));
+    params.set("interval", String(key.interval));
+    params.set("outputsize", String(key.outputsize));
+
+    if (key.before) {
+      params.set("before", String(key.before));
+    }
+
+    const res = await fetch(`/proxy/multiplexer/candles?${params.toString()}`, {
+      method: "GET",
+      credentials: "include",
     });
 
     const body = await res.json();

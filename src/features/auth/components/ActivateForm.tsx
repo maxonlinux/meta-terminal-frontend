@@ -1,30 +1,44 @@
 "use client";
 
 import { Loader } from "lucide-react";
-import { redirect, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect } from "react";
 import { Button, Form } from "react-aria-components";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import useSWR from "swr";
 import { useCountdown } from "usehooks-ts";
-import { ApiError, apiFetch } from "@/api/http";
 import { CustomOtpField } from "@/components/ui/CustomOtpFIeld";
 import { SubmitButton } from "@/features/auth/components/SubmitButton";
 import type { ActivateForm as ActivateFormValues } from "@/features/auth/types";
+
+const OTP_COOLDOWN_SECONDS = 60;
 
 export function ActivateForm({ username }: { username: string }) {
   const router = useRouter();
 
   const [count, { startCountdown, resetCountdown }] = useCountdown({
-    countStart: 60,
+    countStart: OTP_COOLDOWN_SECONDS,
+    countStop: 0,
     intervalMs: 1000,
+    isIncrement: false,
   });
 
+  const startTimer = useCallback(() => {
+    resetCountdown();
+    startCountdown();
+  }, [resetCountdown, startCountdown]);
+
+  useEffect(() => {
+    startTimer();
+  }, [startTimer]);
+
   const { error, isValidating, mutate } = useSWR(
-    `otp:generate`,
+    `otp:generate:${username}`,
     async () => {
-      const res = await apiFetch("/otp/generate", {
+      const res = await fetch("/proxy/main/api/v1/otp/generate", {
         method: "POST",
+        credentials: "include",
         body: JSON.stringify({ username }),
       });
 
@@ -35,9 +49,7 @@ export function ActivateForm({ username }: { username: string }) {
       }
 
       toast.success("OTP requested");
-
-      resetCountdown();
-      startCountdown();
+      startTimer();
     },
     {
       revalidateOnFocus: false,
@@ -50,33 +62,32 @@ export function ActivateForm({ username }: { username: string }) {
     mode: "onTouched",
     reValidateMode: "onChange",
     defaultValues: {
-      username: username,
+      username,
       otp: "",
     },
   });
 
   const onSubmit = async (data: ActivateFormValues) => {
-    const res = await apiFetch("/otp/validate", {
+    const res = await fetch("/proxy/main/api/v1/auth/activate", {
       method: "POST",
+      credentials: "include",
       body: JSON.stringify(data),
     });
+
     if (!res.ok) {
       const body = await res.json();
       toast.error(body.error);
       return;
     }
 
-    toast.success("Successfully signed in");
+    toast.success("Account activated!");
     router.push("/login");
   };
 
-  const resendOtp = async () => {
-    await mutate();
-  };
-
-  if (error instanceof ApiError && error.status === 404) {
-    return redirect("/register");
-  }
+  useEffect(() => {
+    if (!error) return;
+    toast.error("message" in error ? error.message : "An error occurred");
+  }, [error]);
 
   return (
     <Form onSubmit={(e) => void handleSubmit(onSubmit)(e)} autoComplete="off">
@@ -86,14 +97,8 @@ export function ActivateForm({ username }: { username: string }) {
           control={control}
           rules={{
             required: "Code is required",
-            minLength: {
-              value: 6,
-              message: "Code must be 6 characters",
-            },
-            maxLength: {
-              value: 6,
-              message: "Code must be 6 characters",
-            },
+            minLength: { value: 6, message: "Code must be 6 characters" },
+            maxLength: { value: 6, message: "Code must be 6 characters" },
           }}
           render={({ field, fieldState }) => (
             <CustomOtpField
@@ -108,22 +113,24 @@ export function ActivateForm({ username }: { username: string }) {
           )}
         />
       </div>
+
       <div className="flex flex-col items-center gap-4 w-full mt-4">
         <SubmitButton isSubmitting={formState.isSubmitting} label="Confirm" />
       </div>
+
       <div className="flex justify-end mt-2">
         {count > 0 ? (
           <span className="text-sm opacity-50">Get code in {count} sec</span>
         ) : (
           <Button
             type="button"
-            onPress={() => resendOtp()}
+            onPress={() => void mutate()}
             isDisabled={isValidating}
             className="flex items-center gap-2 text-sm text-blue-500 hover:underline cursor-pointer disabled:text-neutral-400 disabled:pointer-events-none"
           >
-            {isValidating && (
+            {isValidating ? (
               <Loader size={14} className="inline animate-spin" />
-            )}
+            ) : null}
             Get OTP code
           </Button>
         )}

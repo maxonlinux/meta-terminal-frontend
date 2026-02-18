@@ -26,7 +26,7 @@ import { Controller, useForm } from "react-hook-form";
 import QRCode from "react-qr-code";
 import { toast } from "sonner";
 import useSWR from "swr";
-import { ApiError, apiJson } from "@/api/http";
+import { ApiError } from "@/api/http";
 import { Skeleton } from "@/components/common/Skeleton";
 import { WithSkeleton } from "@/components/common/WithSkeleton";
 import { CustomNumericField } from "@/components/ui/CustomNumericField";
@@ -112,10 +112,10 @@ export default function DepositModal(params: { showTrigger: boolean }) {
 
   const modalRef = useRef<HTMLDivElement>(null);
 
-  const { data: wallets } = useSWR<Wallet[]>(
-    "user:wallets",
-    async () => await apiJson<Wallet[]>("/user/wallets"),
-  );
+  const { data: wallets } = useSWR<Wallet[]>("user:wallets", async () => {
+    const res = await fetch("/proxy/main/api/v1/user/wallets");
+    return (await res.json()) as Wallet[];
+  });
 
   const { control, handleSubmit, watch, trigger, reset, setValue, formState } =
     useForm<FormValues>({

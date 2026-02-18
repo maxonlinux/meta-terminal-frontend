@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 import useWebSocket from "react-use-websocket";
 import useSWR, { mutate as swrMutate } from "swr";
-import { multiplexer } from "@/api/client";
 import type { Candle } from "@/features/assets/types";
 import { useWebsocketBaseUrl } from "@/features/trading/hooks/useWebsocketBaseUrl";
 import { useWsReconnectStatusStore } from "@/stores/useWsReconnectStatusStore";
@@ -64,9 +63,10 @@ export function useRealTimeCandle(symbol: string, interval: number) {
   const { data: last } = useSWR(
     `candles:last:${symbol}:${interval}`,
     async () => {
-      const res = await multiplexer["/candles/last"].get({
-        query: { symbol, interval },
-      });
+      const res = await fetch(
+        `/proxy/multiplexer/candles/last?symbol=${symbol}&interval=${interval}`,
+        { method: "GET", credentials: "include" },
+      );
       const body = await res.json();
       if (body && "error" in body) return null;
       return body;
@@ -144,13 +144,15 @@ export function useRealTimeCandle(symbol: string, interval: number) {
     if (!multiplexerWsBase) return;
     const c = refCounts.get(key) ?? 0;
     refCounts.set(key, c + 1);
-    if (c === 0) sendJsonMessage({ action: "subscribe", assets: [key] });
+    if (c === 0) {
+      sendJsonMessage({ action: "subscribe", assets: [symbol], interval });
+    }
 
     return () => {
       const cur = (refCounts.get(key) ?? 1) - 1;
       if (cur <= 0) {
         refCounts.delete(key);
-        sendJsonMessage({ action: "unsubscribe", assets: [key] });
+        sendJsonMessage({ action: "unsubscribe", assets: [symbol], interval });
       } else {
         refCounts.set(key, cur);
       }

@@ -1,5 +1,4 @@
 import useSWR from "swr";
-import { apiJson } from "@/api/http";
 import type {
   TradingCategory,
   TradingOpenOrder,
@@ -18,9 +17,15 @@ export function useOpenOrders(params: {
 }) {
   const key = `orders:${params.category}:${params.symbol}`;
   const { data, error, isLoading } = useSWR(key, async () => {
-    const body = await apiJson<{ orders: TradingOpenOrder[] }>("/user/orders", {
-      query: { category: params.category, symbol: params.symbol },
+    const query = new URLSearchParams({
+      category: params.category,
+      symbol: params.symbol,
+    }).toString();
+    const res = await fetch(`/proxy/main/api/v1/user/orders?${query}`, {
+      method: "GET",
+      credentials: "include",
     });
+    const body = (await res.json()) as { orders: TradingOpenOrder[] };
     return body.orders.filter((order) => OPEN_STATUSES.has(order.status));
   });
 

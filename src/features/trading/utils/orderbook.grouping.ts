@@ -136,7 +136,8 @@ export function generateOrderbookGroupingOptions(params: {
     .sort((a, b) => a - b)
     .map((v) => stripTrailingZeros(formatScaledInt(v, scale)));
 
-  return out;
+  const tickLabel = stripTrailingZeros(formatScaledInt(tickInt, scale));
+  return [tickLabel, ...out.filter((v) => v !== tickLabel)];
 }
 
 export function groupOrderbook(params: {

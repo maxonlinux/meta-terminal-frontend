@@ -3,7 +3,6 @@
 import Decimal from "decimal.js";
 import { Crown } from "lucide-react";
 import useSWR from "swr";
-import { apiFetch } from "@/api/http";
 
 function normalizePlanName(name: string | null) {
   if (!name) return "None";
@@ -16,7 +15,10 @@ function normalizePlanName(name: string | null) {
 
 export default function PlanProgress() {
   const { data } = useSWR("user:plan", async () => {
-    const res = await apiFetch("/user/plan");
+    const res = await fetch("/proxy/main/api/v1/user/plan", {
+      method: "GET",
+      credentials: "include",
+    });
 
     return await res.json();
   });

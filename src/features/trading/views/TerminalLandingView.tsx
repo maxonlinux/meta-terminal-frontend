@@ -1,5 +1,7 @@
+"use client";
+
 import { Folder, Play, TrendingUp } from "lucide-react";
-import { fetchAssets } from "@/features/assets/api";
+import { useAssets } from "@/features/assets/hooks/useAssets";
 import type { AssetData } from "@/features/assets/types";
 import { AssetGrid } from "@/features/trading/components/landing/AssetGrid";
 import { Footer } from "@/features/trading/components/landing/Footer";
@@ -76,10 +78,10 @@ const HowItWorks = () => {
   );
 };
 
-export default async function TerminalLandingView() {
-  const assets = await fetchAssets();
+export default function TerminalLandingView() {
+  const { assets, isLoading } = useAssets();
 
-  if (!assets) {
+  if (isLoading || !assets) {
     return null;
   }
 

@@ -6,7 +6,7 @@ import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import useSWR from "swr";
 import { useCountdown } from "usehooks-ts";
-import { ApiError, apiFetch } from "@/api/http";
+import { ApiError } from "@/api/http";
 import { CustomOtpField } from "@/components/ui/CustomOtpFIeld";
 import type { ActivateForm } from "@/features/auth/types";
 import { useOtpActionStore } from "@/stores/useOtpActionStore";
@@ -22,8 +22,9 @@ export function OtpForm({ username }: { username: string }) {
   const { data, error, isValidating, mutate } = useSWR(
     `otp:generate`,
     async () => {
-      const res = await apiFetch("/otp/generate", {
+      const res = await fetch("/proxy/main/api/v1/otp/generate", {
         method: "POST",
+        credentials: "include",
         body: JSON.stringify({ username }),
       });
       if (!res.ok) {
@@ -58,8 +59,9 @@ export function OtpForm({ username }: { username: string }) {
 
   const onSubmit = async (data: ActivateForm) => {
     try {
-      const res = await apiFetch("/otp/validate", {
+      const res = await fetch("/proxy/main/api/v1/otp/validate", {
         method: "POST",
+        credentials: "include",
         body: JSON.stringify(data),
       });
       if (!res.ok) {

@@ -1,5 +1,4 @@
 import useSWR from "swr";
-import { apiFetch, apiJson } from "@/api/http";
 import type { UserAddress } from "@/features/user/types";
 import { useOtpActionStore } from "@/stores/useOtpActionStore";
 
@@ -13,7 +12,9 @@ export const useUserAddress = () => {
     isLoading,
   } = useSWR<UserAddress | null>(`user:address`, async () => {
     try {
-      return await apiJson<UserAddress>("/user/settings/address");
+      const res = await fetch("/proxy/main/api/v1/user/settings/address");
+      const data = await res.json();
+      return data;
     } catch {
       return null;
     }
@@ -29,8 +30,9 @@ export const useUserAddress = () => {
     address?: string;
     zip?: string;
   }) => {
-    const res = await apiFetch("/user/settings/address", {
+    const res = await fetch("/proxy/main/api/v1/user/settings/address", {
       method: "PATCH",
+      credentials: "include",
       body: JSON.stringify(data),
     });
     if (res.status === 428) {

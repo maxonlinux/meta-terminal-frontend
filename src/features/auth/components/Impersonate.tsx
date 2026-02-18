@@ -4,10 +4,12 @@ import { Loader } from "lucide-react";
 import { redirect } from "next/navigation";
 import { useEffect } from "react";
 import { toast } from "sonner";
-import { apiFetch } from "@/api/http";
 
 const impersonate = async (token: string) => {
-  const res = await apiFetch(`/auth/impersonate/${token}`);
+  const res = await fetch(`/auth/impersonate/${token}`, {
+    method: "POST",
+    credentials: "include",
+  });
 
   if (res.ok) redirect("/settings");
 

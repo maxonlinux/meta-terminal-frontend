@@ -8,9 +8,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Form } from "react-aria-components";
 import { Controller, useForm, useWatch } from "react-hook-form";
-// import { toast } from "react-hot-toast";
 import { toast } from "sonner";
-import { apiFetch } from "@/api/http";
 import { CustomPhoneField } from "@/components/ui/CustomPhoneField";
 import { CustomTextField } from "@/components/ui/CustomTextField";
 import { SubmitButton } from "@/features/auth/components/SubmitButton";
@@ -39,8 +37,9 @@ export default function RegisterFormComponent({
   const password = useWatch({ control, name: "password" });
 
   const onSubmit = async (data: RegisterForm) => {
-    const res = await apiFetch("/auth/register", {
+    const res = await fetch("/proxy/main/api/v1/auth/register", {
       method: "POST",
+      credentials: "include",
       body: JSON.stringify(data),
     });
 

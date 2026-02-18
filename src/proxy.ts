@@ -30,7 +30,7 @@ function getAccess(path: string): Access | undefined {
 }
 
 export function proxy(request: NextRequest) {
-  const token = request.cookies.get("token")?.value;
+  const token = request.cookies.get("user_token")?.value;
   const path = request.nextUrl.pathname;
 
   const access = getAccess(path);
