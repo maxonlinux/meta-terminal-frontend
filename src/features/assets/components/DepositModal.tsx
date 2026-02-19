@@ -26,7 +26,6 @@ import { Controller, useForm } from "react-hook-form";
 import QRCode from "react-qr-code";
 import { toast } from "sonner";
 import useSWR from "swr";
-import { ApiError } from "@/api/http";
 import { Skeleton } from "@/components/common/Skeleton";
 import { WithSkeleton } from "@/components/common/WithSkeleton";
 import { CustomNumericField } from "@/components/ui/CustomNumericField";
@@ -35,6 +34,7 @@ import { useUserTransactions } from "@/features/user/hooks/useUserTransactions";
 import type { Wallet } from "@/features/user/types";
 import { cls } from "@/utils/general.utils";
 import { PartnerLogos } from "./PartnerLogos";
+import { fetchWallets } from "@/api/wallets";
 
 const AMOUNTS = [500, 1000, 2000, 5000];
 
@@ -112,10 +112,7 @@ export default function DepositModal(params: { showTrigger: boolean }) {
 
   const modalRef = useRef<HTMLDivElement>(null);
 
-  const { data: wallets } = useSWR<Wallet[]>("user:wallets", async () => {
-    const res = await fetch("/proxy/main/api/v1/user/wallets");
-    return (await res.json()) as Wallet[];
-  });
+  const { data: wallets } = useSWR<Wallet[]>("user:wallets", fetchWallets);
 
   const { control, handleSubmit, watch, trigger, reset, setValue, formState } =
     useForm<FormValues>({
@@ -143,17 +140,15 @@ export default function DepositModal(params: { showTrigger: boolean }) {
 
     try {
       if (!currency) throw new Error("Currency not selected");
-      const promise = createDepositTransaction({
+      const res = await createDepositTransaction({
         walletId: data.walletId,
         amount: data.amount,
       });
-      void toast.promise(promise, {
-        loading: "Processing...",
-        success: () => "Deposit request created",
-        error: (err) =>
-          err instanceof ApiError ? err.code : "Error creating deposit request",
-      });
-      await promise;
+      if (!res) {
+        toast.error("Error creating deposit request");
+        return;
+      }
+      toast.success("Deposit request created");
     } finally {
       close();
     }

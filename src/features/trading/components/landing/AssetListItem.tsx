@@ -5,8 +5,8 @@ import { Skeleton } from "@/components/common/Skeleton";
 import type { AssetData } from "@/features/assets/types";
 import { useInstrument } from "@/features/trading/hooks/useInstrument";
 import { useRealTimeCandle } from "@/features/trading/hooks/useRealTimeCandle";
-import { formatNumber } from "@/utils/format";
-import { cls, withLeadingPlus } from "@/utils/general.utils";
+import Decimal from "decimal.js";
+import { cls } from "@/utils/general.utils";
 
 const AssetListItemSkeleton = () => (
   <div className="flex items-center gap-2 w-full select-none px-1 py-2 rounded-xs">
@@ -35,7 +35,17 @@ export const AssetListItem = ({
 
   if (!(candle && instrument)) return <AssetListItemSkeleton />;
 
-  const changePercentage = ((candle.close - candle.open) / candle.open) * 100;
+  const close = new Decimal(candle.close);
+  const open = new Decimal(candle.open);
+  const changePercentage = open.isZero()
+    ? new Decimal(0)
+    : close.minus(open).div(open).mul(100);
+  const priceText = close
+    .toDecimalPlaces(instrument.pricePrecision, Decimal.ROUND_DOWN)
+    .toString();
+  const changeText = `${changePercentage.gt(0) ? "+" : ""}${changePercentage
+    .toDecimalPlaces(2, Decimal.ROUND_DOWN)
+    .toString()}%`;
 
   return (
     <div
@@ -73,19 +83,15 @@ export const AssetListItem = ({
         </div>
       </div>
       <div className="text-xs ml-auto whitespace-nowrap">
-        <span>
-          {formatNumber(candle.close, {
-            maxDecimals: instrument.pricePrecision,
-          })}
-        </span>{" "}
+        <span>{priceText}</span>{" "}
         <span
           className={cls("inline-block min-w-16 text-end", {
-            "text-green-400": changePercentage > 0,
-            "text-red-400": changePercentage < 0,
-            "text-neutral-400": changePercentage === 0,
+            "text-green-400": changePercentage.gt(0),
+            "text-red-400": changePercentage.lt(0),
+            "text-neutral-400": changePercentage.isZero(),
           })}
         >
-          {(+withLeadingPlus(+changePercentage)).toFixed(2)}%
+          {changeText}
         </span>
       </div>
     </div>

@@ -8,7 +8,8 @@ export function usePriceSymbolMap(bases: readonly string[]) {
   const { assets } = useAssets(); // SWR under the hood
 
   useEffect(() => {
-    if (assets) setSymbolsSet(new Set(assets.map((a) => a.symbol)));
+    if (!assets?.length) return;
+    setSymbolsSet(new Set(assets.map((a) => a.symbol)));
   }, [assets]);
 
   return useMemo(() => {

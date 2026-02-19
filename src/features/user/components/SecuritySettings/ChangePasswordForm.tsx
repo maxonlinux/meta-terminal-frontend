@@ -4,6 +4,7 @@ import { Form } from "react-aria-components";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { CustomTextField } from "@/components/ui/CustomTextField";
+import { updateUserPassword } from "@/api/user";
 import { useOtpActionStore } from "@/stores/useOtpActionStore";
 import { SubmitButton } from "../SubmitButton";
 
@@ -23,18 +24,13 @@ export function ChangePasswordForm() {
     oldPassword: string;
     newPassword: string;
   }) => {
-    const res = await fetch("/proxy/main/api/v1/user/settings/password", {
-      method: "PUT",
-      credentials: "include",
-      body: JSON.stringify(data),
-    });
-
-    if (res.status === 428) {
+    const res = await updateUserPassword(data);
+    if (res.res.status === 428) {
       setOtpAction(() => onSubmit(data));
       return null;
     }
 
-    if (!res.ok) {
+    if (!res.res.ok) {
       toast.error("ERROR OCCURRED");
       return null;
     }

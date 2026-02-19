@@ -3,6 +3,7 @@ import useWebSocket from "react-use-websocket";
 import useSWR, { mutate as swrMutate } from "swr";
 import { useWebsocketBaseUrl } from "@/features/trading/hooks/useWebsocketBaseUrl";
 import { useWsReconnectStatusStore } from "@/stores/useWsReconnectStatusStore";
+import { getPrice } from "@/api/multiplexer";
 
 type PriceMessage = { symbol: string; price: number };
 
@@ -42,16 +43,7 @@ export function useRealTimePrice(symbol: string) {
   // 2) Fallback (initial REST)
   const { data: last } = useSWR(
     symbol ? `price:${symbol}` : null,
-    async () => {
-      const res = await fetch(`/proxy/multiplexer/prices?symbol=${symbol}`, {
-        credentials: "include",
-        method: "GET",
-      });
-      if (!res.ok) return null;
-
-      const body = await res.json();
-      return body;
-    },
+    async () => await getPrice(symbol),
     { revalidateOnFocus: false },
   );
 

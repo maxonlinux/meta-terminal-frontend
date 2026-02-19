@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Decimal from "decimal.js";
 import { ListBoxItem } from "react-aria-components";
 import { Skeleton } from "@/components/common/Skeleton";
 import { CustomSelect } from "@/components/ui/CustomSelect";
@@ -10,7 +11,6 @@ import {
   generateOrderbookGroupingOptions,
   groupOrderbook,
 } from "@/features/trading/utils/orderbook.grouping";
-import { formatFixed, spreadText } from "@/features/trading/utils/price.format";
 
 const ORDERS_LENGTH = 11;
 
@@ -28,6 +28,13 @@ const OVERLAY_DASH = "rgba(255,255,255,0.45)";
 // Layout
 const ROW_H = 24; // fixed so overlay is continuous between rows
 const LIST_H = ROW_H * ORDERS_LENGTH;
+
+const ZERO = new Decimal(0);
+const HUNDRED = new Decimal(100);
+
+function clampPct(value: Decimal): Decimal {
+  return Decimal.min(HUNDRED, Decimal.max(ZERO, value));
+}
 
 type Level = { price: string; qty: string };
 type MaybeLevel = Level | null;
@@ -88,18 +95,18 @@ const OrderBookHead = ({ className }: { className?: string }) => {
 
 function padLevels(levels: Level[], count: number): MaybeLevel[] {
   const out: MaybeLevel[] = new Array(count).fill(null);
-  const n = Math.min(count, levels.length);
+  const n = count < levels.length ? count : levels.length;
   for (let i = 0; i < n; i++) out[i] = levels[i] ?? null;
   return out;
 }
 
-function maxQtyOf(levels: MaybeLevel[]): number {
-  let max = 1e-9;
+function maxQtyOf(levels: MaybeLevel[]): Decimal {
+  let max = ZERO;
   for (let i = 0; i < levels.length; i++) {
     const level = levels[i];
     if (!level) continue;
-    const qty = Number(level.qty);
-    if (Number.isFinite(qty) && qty > max) max = qty;
+    const qty = new Decimal(level.qty);
+    if (qty.isFinite() && qty.gt(max)) max = qty;
   }
   return max;
 }
@@ -118,34 +125,32 @@ function lastNonNullPrice(
 function imbalancePctFromLevels(params: {
   bids: MaybeLevel[];
   asks: MaybeLevel[];
-}): { bidPct: number; askPct: number } {
+}): { bidPct: Decimal; askPct: Decimal } {
   const sumQty = (levels: MaybeLevel[]) => {
-    let total = 0;
+    let total = ZERO;
     for (let i = 0; i < levels.length; i++) {
       const level = levels[i];
       if (!level) continue;
-      const qty = Number(level.qty);
-      if (Number.isFinite(qty) && qty > 0) total += qty;
+      const qty = new Decimal(level.qty);
+      if (qty.isFinite() && qty.gt(0)) total = total.plus(qty);
     }
     return total;
   };
 
   const bidTotal = sumQty(params.bids);
   const askTotal = sumQty(params.asks);
-  const total = bidTotal + askTotal;
+  const total = bidTotal.plus(askTotal);
 
-  if (!Number.isFinite(total) || total <= 0) return { bidPct: 50, askPct: 50 };
+  if (!total.isFinite() || total.lte(0)) {
+    return { bidPct: new Decimal(50), askPct: new Decimal(50) };
+  }
 
-  const bidPct = Math.round((bidTotal / total) * 100);
-  const askPct = 100 - bidPct;
+  const bidPct = bidTotal
+    .div(total)
+    .mul(HUNDRED)
+    .toDecimalPlaces(0, Decimal.ROUND_HALF_UP);
+  const askPct = HUNDRED.minus(bidPct);
   return { bidPct, askPct };
-}
-
-function clamp01(n: number) {
-  if (!Number.isFinite(n)) return 0;
-  if (n < 0) return 0;
-  if (n > 1) return 1;
-  return n;
 }
 
 function calcHoverStats(params: {
@@ -160,37 +165,37 @@ function calcHoverStats(params: {
 
   if (h.side === "BID") {
     const slice = pick(params.bids.slice(0, h.idx + 1));
-    let totalQty = 0;
-    let totalNotional = 0;
+    let totalQty = ZERO;
+    let totalNotional = ZERO;
 
     for (let i = 0; i < slice.length; i++) {
       const l = slice[i];
-      const p = Number(l.price);
-      const q = Number(l.qty);
-      if (!Number.isFinite(p) || !Number.isFinite(q)) continue;
-      totalQty += q;
-      totalNotional += p * q;
+      const p = new Decimal(l.price);
+      const q = new Decimal(l.qty);
+      if (!p.isFinite() || !q.isFinite()) continue;
+      totalQty = totalQty.plus(q);
+      totalNotional = totalNotional.plus(p.mul(q));
     }
 
-    const avg = totalQty > 0 ? totalNotional / totalQty : 0;
+    const avg = totalQty.gt(0) ? totalNotional.div(totalQty) : ZERO;
     return { totalQty, totalNotional, avgPrice: avg };
   }
 
   // ASK: viewAsks reversed => best ask at bottom; cumulative from hovered to bottom.
   const slice = pick(params.asks.slice(h.idx));
-  let totalQty = 0;
-  let totalNotional = 0;
+  let totalQty = ZERO;
+  let totalNotional = ZERO;
 
   for (let i = 0; i < slice.length; i++) {
     const l = slice[i];
-    const p = Number(l.price);
-    const q = Number(l.qty);
-    if (!Number.isFinite(p) || !Number.isFinite(q)) continue;
-    totalQty += q;
-    totalNotional += p * q;
+    const p = new Decimal(l.price);
+    const q = new Decimal(l.qty);
+    if (!p.isFinite() || !q.isFinite()) continue;
+    totalQty = totalQty.plus(q);
+    totalNotional = totalNotional.plus(p.mul(q));
   }
 
-  const avg = totalQty > 0 ? totalNotional / totalQty : 0;
+  const avg = totalQty.gt(0) ? totalNotional.div(totalQty) : ZERO;
   return { totalQty, totalNotional, avgPrice: avg };
 }
 
@@ -211,7 +216,11 @@ function overlayFromHover(hover: Hover): Overlay {
 }
 
 const HoverCard = (params: {
-  stats: { totalQty: number; totalNotional: number; avgPrice: number } | null;
+  stats: {
+    totalQty: Decimal;
+    totalNotional: Decimal;
+    avgPrice: Decimal;
+  } | null;
   pricePrecision: number;
   qtyPrecision: number;
 }) => {
@@ -227,21 +236,29 @@ const HoverCard = (params: {
       <div className="flex gap-3 justify-between">
         <span>Avg. Price</span>
         <span className="tabular-nums">
-          {Number.isFinite(avg)
-            ? formatFixed(avg, params.pricePrecision)
+          {avg.isFinite()
+            ? avg
+                .toDecimalPlaces(params.pricePrecision, Decimal.ROUND_DOWN)
+                .toString()
             : "--"}
         </span>
       </div>
       <div className="flex gap-3 justify-between">
         <span>Total Qty</span>
         <span className="tabular-nums">
-          {Number.isFinite(tq) ? formatFixed(tq, params.qtyPrecision) : "--"}
+          {tq.isFinite()
+            ? tq
+                .toDecimalPlaces(params.qtyPrecision, Decimal.ROUND_DOWN)
+                .toString()
+            : "--"}
         </span>
       </div>
       <div className="flex gap-3 justify-between">
         <span>Total (USDT)</span>
         <span className="tabular-nums">
-          {Number.isFinite(tn) ? tn.toFixed(3) : "--"}
+          {tn.isFinite()
+            ? tn.toDecimalPlaces(3, Decimal.ROUND_DOWN).toString()
+            : "--"}
         </span>
       </div>
     </div>
@@ -285,7 +302,7 @@ const OrderBookItem = ({
   level: MaybeLevel;
   pricePrecision: number;
   qtyPrecision: number;
-  maxQuantity: number;
+  maxQuantity: Decimal;
   hover: Hover;
   setHover: (h: Hover) => void;
 }) => {
@@ -294,21 +311,25 @@ const OrderBookItem = ({
   const depthBg = isBuy ? "bg-blue-500/10" : "bg-red-500/10";
   const color = isBuy ? "text-blue-500" : "text-red-400";
 
-  const priceText = level
-    ? formatFixed(Number(level.price), pricePrecision)
+  const priceDec = level ? new Decimal(level.price) : null;
+  const qtyDec = level ? new Decimal(level.qty) : ZERO;
+  const priceText = priceDec
+    ? priceDec.toDecimalPlaces(pricePrecision, Decimal.ROUND_DOWN).toString()
     : "--";
 
-  const qty = level ? Number(level.qty) : 0;
-  const quantityText = level ? formatFixed(qty, qtyPrecision) : "--";
-
-  const total = level ? Number(level.price) * Number(level.qty) : NaN;
-  const totalText = level
-    ? Number.isFinite(total)
-      ? total.toFixed(3)
-      : "--"
+  const quantityText = level
+    ? qtyDec.toDecimalPlaces(qtyPrecision, Decimal.ROUND_DOWN).toString()
     : "--";
 
-  const w = clamp01(maxQuantity > 0 ? qty / maxQuantity : 0) * 100;
+  const total = priceDec ? priceDec.mul(qtyDec) : null;
+  const totalText = total
+    ? total.toDecimalPlaces(3, Decimal.ROUND_DOWN).toString()
+    : "--";
+
+  const widthPct = maxQuantity.gt(0)
+    ? qtyDec.div(maxQuantity).mul(HUNDRED)
+    : ZERO;
+  const w = clampPct(widthPct).toString();
 
   const hoverSide: "ASK" | "BID" = isBuy ? "BID" : "ASK";
   const isSelected =
@@ -337,25 +358,28 @@ const OrderBookItem = ({
   );
 };
 
-const ImbalanceBar = (params: { bidPct: number; askPct: number }) => {
+const ImbalanceBar = (params: { bidPct: Decimal; askPct: Decimal }) => {
+  const bidLabel = params.bidPct
+    .toDecimalPlaces(0, Decimal.ROUND_HALF_UP)
+    .toString();
+  const askLabel = params.askPct
+    .toDecimalPlaces(0, Decimal.ROUND_HALF_UP)
+    .toString();
+
   return (
     <div className="flex items-center gap-2 px-3 py-2 text-xs text-white/70">
-      <span className="text-blue-500 tabular-nums">
-        B {Math.round(params.bidPct)}%
-      </span>
+      <span className="text-blue-500 tabular-nums">B {bidLabel}%</span>
       <div className="relative flex-1 h-3 rounded-xs overflow-hidden bg-white/5">
         <div
           className="absolute left-0 top-0 h-full bg-blue-500/25"
-          style={{ width: `${params.bidPct}%` }}
+          style={{ width: `${params.bidPct.toString()}%` }}
         />
         <div
           className="absolute right-0 top-0 h-full bg-red-500/25"
-          style={{ width: `${params.askPct}%` }}
+          style={{ width: `${params.askPct.toString()}%` }}
         />
       </div>
-      <span className="text-red-400 tabular-nums">
-        {Math.round(params.askPct)}% S
-      </span>
+      <span className="text-red-400 tabular-nums">{askLabel}% S</span>
     </div>
   );
 };
@@ -373,7 +397,7 @@ const OrderBookSide = (params: {
   } | null;
   pricePrecision: number;
   qtyPrecision: number;
-  maxQuantity: number;
+  maxQuantity: Decimal;
   setHover: (h: Hover) => void;
 }) => {
   const showCard = params.hover !== null && params.hover.side === params.side;
@@ -464,7 +488,7 @@ function OrderBookReady(params: {
   }, [grouped.asks]);
 
   const maxQuantity = useMemo(() => {
-    return Math.max(maxQtyOf(viewBids), maxQtyOf(viewAsks));
+    return Decimal.max(maxQtyOf(viewBids), maxQtyOf(viewAsks));
   }, [viewBids, viewAsks]);
 
   const viewBestBid = viewBids[0] ? viewBids[0].price : params.bestBid;

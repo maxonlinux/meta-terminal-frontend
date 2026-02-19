@@ -20,14 +20,6 @@ const timeFrameButtons = [
   { label: "1d", value: 86400 },
 ];
 
-function formatSignedPnl(pnl: Decimal | null): string {
-  if (pnl === null) return "P&L --";
-  const v = pnl.toNumber();
-  const abs = Math.abs(v);
-  const txt = abs.toLocaleString(undefined, { maximumFractionDigits: 2 });
-  return v >= 0 ? `P&L +${txt}` : `P&L -${txt}`;
-}
-
 const HeadItem = ({ text, value }: { text: string; value: number }) => (
   <div>
     <span className="opacity-50">{text}:</span> {value}
@@ -120,18 +112,26 @@ export const CandlestickChart = ({
   const overlayModel = useMemo(() => {
     if (!position) return null;
 
-    const entry = Number(position.entryPrice);
-    if (!Number.isFinite(entry)) return null;
+    const entry = new Decimal(position.entryPrice);
+    if (!entry.isFinite()) return null;
 
-    const size = Number(position.size);
-    if (!Number.isFinite(size) || size === 0) return null;
+    const size = new Decimal(position.size);
+    if (!size.isFinite() || size.isZero()) return null;
 
-    const qty = new Decimal(Math.abs(size));
-    const qtyText = qty.isFinite() ? qty.toFixed() : "--";
-    const pnlText = formatSignedPnl(pnl);
+    const qty = size.abs();
+    const qtyText = qty.isFinite()
+      ? qty.toDecimalPlaces(0, Decimal.ROUND_DOWN).toString()
+      : "--";
+    const pnlText = pnl
+      ? (() => {
+          const abs = pnl.abs();
+          const txt = abs.toDecimalPlaces(2, Decimal.ROUND_DOWN).toString();
+          return pnl.gte(0) ? `P&L +${txt}` : `P&L -${txt}`;
+        })()
+      : "P&L --";
 
     return {
-      entryPrice: entry,
+      entryPrice: entry.toNumber(),
       pnlText,
       qtyText,
     };

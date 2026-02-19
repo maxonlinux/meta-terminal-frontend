@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Form } from "react-aria-components";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { login } from "@/api/auth";
 import { CustomTextField } from "@/components/ui/CustomTextField";
 import { SubmitButton } from "@/features/auth/components/SubmitButton";
 import type { LoginForm as LoginFormValues } from "@/features/auth/types";
@@ -22,25 +23,19 @@ export default function LoginForm() {
   });
 
   const onSubmit = async (data: LoginFormValues) => {
-    const res = await fetch("/proxy/main/api/v1/auth/login", {
-      credentials: "include",
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    if (res.ok) {
+    const res = await login(data);
+
+    if (res.res.ok) {
       router.refresh();
       return;
     }
 
-    const body = await res.json();
-
-    if (body.error === "USER_NOT_ACTIVE") {
+    if (res.body?.error === "USER_NOT_ACTIVE") {
       router.push(`/activate/${data.username}`);
       return;
     }
 
-    toast.error(body.error);
+    toast.error(res.body?.error ?? "Login failed");
   };
 
   return (

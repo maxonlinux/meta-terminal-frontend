@@ -11,3 +11,17 @@ export class ApiError extends Error {
     this.body = params.body;
   }
 }
+
+export async function requestJson<T>(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): Promise<{ res: Response; body: T | null }> {
+  const res = await fetch(input, init);
+  let body: T | null = null;
+  try {
+    body = (await res.json()) as T;
+  } catch {
+    body = null;
+  }
+  return { res, body };
+}

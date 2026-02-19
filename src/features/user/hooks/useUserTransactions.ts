@@ -1,4 +1,9 @@
 import useSWR from "swr";
+import {
+  createDepositTransaction as createDepositRequest,
+  createWithdrawalTransaction as createWithdrawalRequest,
+  getUserTransactions,
+} from "@/api/user";
 import type {
   DepositRequestInput,
   FundingRequest,
@@ -15,55 +20,37 @@ export const useUserTransactions = () => {
     isLoading,
     mutate,
   } = useSWR<FundingRequest[]>("user:transactions", async () => {
-    const res = await fetch("/proxy/main/api/v1/user/funding", {
-      method: "GET",
-      credentials: "include",
-    });
-    const body = await res.json();
-    return body;
+    return await getUserTransactions();
   });
 
   const createWithdrawalTransaction = async (data: WithdrawRequestInput) => {
-    const res = await fetch("/proxy/main/api/v1/user/funding/withdraw", {
-      method: "POST",
-      credentials: "include",
-      body: JSON.stringify({
-        asset: data.asset,
-        amount: String(data.amount),
-        destination: data.destination,
-      }),
-    });
+    const res = await createWithdrawalRequest(data);
 
-    if (res.status === 428) {
+    if (res.res.status === 428) {
       setOtpAction(() => createWithdrawalTransaction(data));
       return null;
     }
 
+    if (!res.res.ok) return null;
     await mutate();
-    return await res.json();
+    return res.body ?? null;
   };
 
   const createDepositTransaction = async (data: DepositRequestInput) => {
-    const res = await fetch("/proxy/main/api/v1/user/funding/deposit", {
-      method: "POST",
-      credentials: "include",
-      body: JSON.stringify({
-        walletId: data.walletId,
-        amount: String(data.amount),
-      }),
-    });
+    const res = await createDepositRequest(data);
 
-    if (res.status === 428) {
+    if (res.res.status === 428) {
       setOtpAction(() => createDepositTransaction(data));
       return null;
     }
 
+    if (!res.res.ok) return null;
     await mutate();
-    return await res.json();
+    return res.body ?? null;
   };
 
   return {
-    transactions: transactions ?? [],
+    transactions: Array.isArray(transactions) ? transactions : [],
     createDepositTransaction,
     createWithdrawalTransaction,
     isLoading,

@@ -15,7 +15,7 @@ import useSWR from "swr";
 import { useDebounceValue } from "usehooks-ts";
 import AssetBackground from "@/components/common/AssetBackground";
 import { useEnv } from "@/env/provider";
-import { searchAssets } from "@/features/assets/api";
+import { searchAssets } from "@/api/assets";
 import type { AssetData } from "@/features/assets/types";
 import { AssetListItem } from "./AssetListItem";
 

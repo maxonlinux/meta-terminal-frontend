@@ -9,8 +9,8 @@ import { useAsset } from "@/features/assets/hooks/useAsset";
 import type { AssetData, Candle } from "@/features/assets/types";
 import { useRealTimeCandle } from "@/features/trading/hooks/useRealTimeCandle";
 import type { TradingInstrument } from "@/features/trading/types";
-import { formatNumber } from "@/utils/format";
-import { cls, withLeadingPlus } from "@/utils/general.utils";
+import Decimal from "decimal.js";
+import { cls } from "@/utils/general.utils";
 import AssetPicker from "./AssetPicker";
 import RecentAssets from "./RecentAssets";
 
@@ -46,10 +46,22 @@ const AssetInfo = ({
 }) => {
   if (!candle) return <AssetInfoSkeleton />;
 
-  const price = candle.close;
+  const price = new Decimal(candle.close);
+  const open = new Decimal(candle.open);
+  const change = price.minus(open);
+  const changePercentage = open.isZero()
+    ? new Decimal(0)
+    : change.div(open).mul(100);
 
-  const change = candle.close - candle.open;
-  const changePercentage = (change / candle.open) * 100;
+  const priceText = price
+    .toDecimalPlaces(pricePrecision, Decimal.ROUND_DOWN)
+    .toString();
+  const changeText = `${change.gt(0) ? "+" : ""}${change
+    .toDecimalPlaces(pricePrecision, Decimal.ROUND_DOWN)
+    .toString()}`;
+  const changePctText = `${changePercentage.gt(0) ? "+" : ""}${changePercentage
+    .toDecimalPlaces(2, Decimal.ROUND_DOWN)
+    .toString()}%`;
 
   return (
     <>
@@ -72,19 +84,14 @@ const AssetInfo = ({
         </span>
       </div>
       <div className="grid grid-rows-2 leading-none">
-        <span className="font-bold">
-          {formatNumber(price, { maxDecimals: pricePrecision })} USD
-        </span>
+        <span className="font-bold">{priceText} USD</span>
         <span
           className={cls(
             "text-xs",
-            change >= 0 ? "text-green-400" : "text-red-400",
+            change.gte(0) ? "text-green-400" : "text-red-400",
           )}
         >
-          {formatNumber(+withLeadingPlus(change), {
-            maxDecimals: pricePrecision,
-          })}{" "}
-          ({(+withLeadingPlus(changePercentage)).toFixed(2)}%)
+          {changeText} ({changePctText})
         </span>
       </div>
     </>

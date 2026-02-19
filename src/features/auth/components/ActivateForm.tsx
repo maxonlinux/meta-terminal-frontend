@@ -6,8 +6,10 @@ import { useCallback, useEffect } from "react";
 import { Button, Form } from "react-aria-components";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
-import useSWR from "swr";
+import useSWRImmutable from "swr/immutable";
 import { useCountdown } from "usehooks-ts";
+import { activate } from "@/api/auth";
+import { generateOtp } from "@/api/otp";
 import { CustomOtpField } from "@/components/ui/CustomOtpFIeld";
 import { SubmitButton } from "@/features/auth/components/SubmitButton";
 import type { ActivateForm as ActivateFormValues } from "@/features/auth/types";
@@ -33,28 +35,18 @@ export function ActivateForm({ username }: { username: string }) {
     startTimer();
   }, [startTimer]);
 
-  const { error, isValidating, mutate } = useSWR(
+  const { error, isValidating, mutate } = useSWRImmutable(
     `otp:generate:${username}`,
     async () => {
-      const res = await fetch("/proxy/main/api/v1/otp/generate", {
-        method: "POST",
-        credentials: "include",
-        body: JSON.stringify({ username }),
-      });
+      const res = await generateOtp({ username });
 
-      if (!res.ok) {
-        const body = await res.json();
-        toast.error(body.error);
+      if (!res.res.ok) {
+        toast.error(res.body?.error ?? "Failed to request OTP");
         return;
       }
 
       toast.success("OTP requested");
       startTimer();
-    },
-    {
-      revalidateOnFocus: false,
-      revalidateOnReconnect: false,
-      revalidateOnMount: false,
     },
   );
 
@@ -68,15 +60,10 @@ export function ActivateForm({ username }: { username: string }) {
   });
 
   const onSubmit = async (data: ActivateFormValues) => {
-    const res = await fetch("/proxy/main/api/v1/auth/activate", {
-      method: "POST",
-      credentials: "include",
-      body: JSON.stringify(data),
-    });
+    const res = await activate(data);
 
-    if (!res.ok) {
-      const body = await res.json();
-      toast.error(body.error);
+    if (!res.res.ok) {
+      toast.error(res.body?.error ?? "Activation failed");
       return;
     }
 

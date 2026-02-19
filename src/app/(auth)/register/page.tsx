@@ -1,16 +1,8 @@
-import type { CountryCallingCode } from "libphonenumber-js";
 import RegisterForm from "@/features/auth/components/RegisterForm";
-
-const getUserCountryCallingCode = async (): Promise<CountryCallingCode> => {
-  const res = await fetch("https://ipapi.co/json/");
-  if (!res.ok) return "+1" as CountryCallingCode;
-
-  const body = await res.json();
-  return body.country_calling_code;
-};
+import { getCountryCallingCode } from "@/api/geo";
 
 export default async function Page() {
-  const callingCode = await getUserCountryCallingCode();
+  const callingCode = await getCountryCallingCode();
 
   return (
     <>

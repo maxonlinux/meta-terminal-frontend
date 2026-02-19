@@ -3,6 +3,7 @@
 import Decimal from "decimal.js";
 import { Crown } from "lucide-react";
 import useSWR from "swr";
+import { getUserPlan } from "@/api/user";
 
 function normalizePlanName(name: string | null) {
   if (!name) return "None";
@@ -15,12 +16,7 @@ function normalizePlanName(name: string | null) {
 
 export default function PlanProgress() {
   const { data } = useSWR("user:plan", async () => {
-    const res = await fetch("/proxy/main/api/v1/user/plan", {
-      method: "GET",
-      credentials: "include",
-    });
-
-    return await res.json();
+    return await getUserPlan();
   });
 
   const current = data?.current ?? null;
@@ -34,7 +30,10 @@ export default function PlanProgress() {
   const percentage = threshold.gt(0)
     ? netDeposits.div(threshold).mul(100)
     : new Decimal(0);
-  const percentValue = Math.min(100, Math.max(0, percentage.toNumber()));
+  const percentValue = Decimal.min(
+    new Decimal(100),
+    Decimal.max(new Decimal(0), percentage),
+  );
   const hasNextPlan = Boolean(next);
   const isMaxPlan = Boolean(current) && !hasNextPlan;
   const showProgress = hasNextPlan && remaining.gt(0) && threshold.gt(0);
@@ -52,13 +51,14 @@ export default function PlanProgress() {
             Next plan: {normalizePlanName(next)}
           </div>
           <div className="text-xs text-white/50">
-            Remaining to reach it: ${remaining.toFixed(2)}
+            Remaining to reach it: $
+            {remaining.toDecimalPlaces(2, Decimal.ROUND_DOWN).toString()}
           </div>
           {showProgress ? (
             <div className="mt-2 h-1.5 w-full rounded-full bg-black/20">
               <div
                 className="h-full rounded-full bg-accent"
-                style={{ width: `${percentValue}%` }}
+                style={{ width: `${percentValue.toString()}%` }}
               />
             </div>
           ) : null}

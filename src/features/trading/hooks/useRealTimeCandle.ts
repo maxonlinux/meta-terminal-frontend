@@ -4,6 +4,7 @@ import useSWR, { mutate as swrMutate } from "swr";
 import type { Candle } from "@/features/assets/types";
 import { useWebsocketBaseUrl } from "@/features/trading/hooks/useWebsocketBaseUrl";
 import { useWsReconnectStatusStore } from "@/stores/useWsReconnectStatusStore";
+import { getLastCandle } from "@/api/multiplexer";
 
 type CandleMessage = Candle & { symbol: string; interval: number };
 
@@ -62,15 +63,7 @@ export function useRealTimeCandle(symbol: string, interval: number) {
   // 2) initial fallback
   const { data: last } = useSWR(
     `candles:last:${symbol}:${interval}`,
-    async () => {
-      const res = await fetch(
-        `/proxy/multiplexer/candles/last?symbol=${symbol}&interval=${interval}`,
-        { method: "GET", credentials: "include" },
-      );
-      const body = await res.json();
-      if (body && "error" in body) return null;
-      return body;
-    },
+    async () => await getLastCandle({ symbol, interval }),
     {
       revalidateOnFocus: false,
       revalidateOnReconnect: false,
@@ -157,7 +150,7 @@ export function useRealTimeCandle(symbol: string, interval: number) {
         refCounts.set(key, cur);
       }
     };
-  }, [key, multiplexerWsBase, sendJsonMessage]);
+  }, [key, multiplexerWsBase, sendJsonMessage, symbol, interval]);
 
   // live wins; fallback if not yet live
   return { candle: live ?? last };

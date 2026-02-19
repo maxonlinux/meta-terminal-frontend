@@ -5,12 +5,12 @@ import { useAssets } from "@/features/assets/hooks/useAssets";
 import { useRecentAssetsStore } from "@/stores/useRecentAssetsStore";
 
 export function useRecentAssets() {
-  const { assets } = useAssets();
+  const { assets, isLoading } = useAssets();
   const { recentAssetSymbols, addRecentAsset, removeRecentAsset } =
     useRecentAssetsStore();
 
   useEffect(() => {
-    if (!assets) return;
+    if (!assets?.length) return;
 
     for (const symbol of recentAssetSymbols) {
       if (!assets.find((asset) => asset.symbol === symbol)) {
@@ -20,14 +20,14 @@ export function useRecentAssets() {
   }, [assets, recentAssetSymbols, removeRecentAsset]);
 
   const validRecentAssetSymbols = useMemo(() => {
-    if (!assets) return undefined;
+    if (!assets?.length) return undefined;
     const set = new Set(assets.map((a) => a.symbol));
     return recentAssetSymbols.filter((s) => set.has(s));
   }, [assets, recentAssetSymbols]);
 
   return {
     recentAssetSymbols: validRecentAssetSymbols,
-    isLoading: !assets,
+    isLoading,
     addRecentAsset,
     removeRecentAsset,
   };

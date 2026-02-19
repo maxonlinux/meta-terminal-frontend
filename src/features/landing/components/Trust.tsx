@@ -1,3 +1,4 @@
+import Decimal from "decimal.js";
 import { animate, useInView } from "motion/react";
 import { useEffect, useRef } from "react";
 
@@ -22,9 +23,11 @@ function Counter({
       duration,
       onUpdate(value) {
         if (nodeRef.current) {
-          const fixed = +value.toFixed();
+          const fixed = new Decimal(value)
+            .toDecimalPlaces(0, Decimal.ROUND_HALF_UP)
+            .toString();
 
-          nodeRef.current.textContent = fixed.toLocaleString();
+          nodeRef.current.textContent = fixed;
         }
       },
     });

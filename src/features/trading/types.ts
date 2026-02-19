@@ -85,6 +85,7 @@ export type TradingInstrument = {
   symbol: string;
   base: string;
   quote: string;
+  assetType: string;
   pricePrecision: number;
   quantityPrecision: number;
   tickSize: string;

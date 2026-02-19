@@ -1,27 +1,36 @@
-import type { AssetData } from "./types";
+import type { AssetData } from "@/features/assets/types";
+import { requestJson } from "@/api/http";
 
 export async function fetchAssets(): Promise<AssetData[]> {
-  const res = await fetch("/proxy/core/assets");
+  const { res, body } = await requestJson<AssetData[]>("/proxy/core/assets", {
+    method: "GET",
+    credentials: "include",
+  });
   if (!res.ok) return [];
-  const body = await res.json();
   return Array.isArray(body) ? body : [];
 }
 
 export async function fetchAsset(symbol: string): Promise<AssetData | null> {
-  const res = await fetch(
+  const { res, body } = await requestJson<AssetData>(
     `/proxy/core/assets?symbol=${encodeURIComponent(symbol)}`,
+    {
+      method: "GET",
+      credentials: "include",
+    },
   );
   if (!res.ok) return null;
-  const body = await res.json();
-  return Array.isArray(body) ? null : body;
+  return body ?? null;
 }
 
 export async function searchAssets(query: string): Promise<AssetData[]> {
   if (!query.trim()) return [];
-  const res = await fetch(
+  const { res, body } = await requestJson<AssetData[]>(
     `/proxy/core/assets/search?query=${encodeURIComponent(query)}`,
+    {
+      method: "GET",
+      credentials: "include",
+    },
   );
   if (!res.ok) return [];
-  const body = await res.json();
   return Array.isArray(body) ? body : [];
 }

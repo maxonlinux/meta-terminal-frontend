@@ -1,5 +1,5 @@
 import useSWR from "swr";
-import { fetchAssets } from "@/features/assets/api";
+import { fetchAssets } from "@/api/assets";
 import type { AssetData } from "@/features/assets/types";
 
 export const useAssets = () => {
@@ -7,10 +7,7 @@ export const useAssets = () => {
     data: assets,
     error,
     isLoading,
-  } = useSWR<AssetData[] | null>("assets", async () => {
-    const body = await fetchAssets();
-    return body.length ? body : null;
-  });
+  } = useSWR<AssetData[]>("assets", fetchAssets);
 
   const get = (symbol: string) => {
     if (!assets) return null;

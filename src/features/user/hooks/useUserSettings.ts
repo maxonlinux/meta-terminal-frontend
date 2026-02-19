@@ -1,41 +1,37 @@
 import useSWR from "swr";
+import {
+  getUserSettings,
+  updateUserSettings as updateUserSettingsRequest,
+} from "@/api/user";
 import type { UserSettings } from "@/features/user/types";
+import { useOtpActionStore } from "@/stores/useOtpActionStore";
 
 export const useUserSettings = () => {
+  const { setOtpAction } = useOtpActionStore();
   const {
     data: userSettings,
     error,
     isLoading,
     mutate,
   } = useSWR<UserSettings | null>("user:settings", async () => {
-    try {
-      const res = await fetch("/proxy/main/api/v1/user/settings", {
-        credentials: "include",
-        method: "GET",
-      });
-      const body = await res.json();
-      if (!res.ok) return null;
-      return body;
-    } catch {
-      return null;
-    }
+    return await getUserSettings();
   });
 
   const updateUserSettings = async (
     data: Partial<Omit<UserSettings, "id" | "userId">>,
   ) => {
-    const res = await fetch("/proxy/main/api/v1/user/settings", {
-      method: "PATCH",
-      credentials: "include",
-      body: JSON.stringify(data),
-    });
+    const res = await updateUserSettingsRequest(data);
 
-    if (!res.ok) return null;
+    if (res.res.status === 428) {
+      setOtpAction(() => updateUserSettings(data));
+      return null;
+    }
+
+    if (!res.res.ok) return null;
 
     mutate();
 
-    const body = await res.json();
-    return body;
+    return res.body ?? null;
   };
 
   return { userSettings, updateUserSettings, isLoading, error };

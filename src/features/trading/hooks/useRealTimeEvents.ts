@@ -74,8 +74,8 @@ export function useRealTimeEvents() {
 
   const wsBase = wsBaseFromWindow();
   const url =
-    wsUrl({ base: wsBase, path: "/ws/events" }) ??
-    wsUrl({ base: wsBase, path: "/proxy/main/api/v1/ws/events" });
+    wsUrl({ base: wsBase, path: "/proxy/main/ws/events" }) ??
+    wsUrl({ base: wsBase, path: "/ws/events" });
 
   const { lastJsonMessage } = useWebSocket(url, {
     share: true,

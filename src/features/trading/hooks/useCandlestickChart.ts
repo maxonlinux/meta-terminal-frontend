@@ -15,6 +15,7 @@ import {
 import { useCallback, useEffect, useRef } from "react";
 import useSWRInfinite from "swr/infinite";
 import type { Candle } from "@/features/assets/types";
+import { getCandles } from "@/api/multiplexer";
 import type { TradingInstrument } from "@/features/trading/types";
 import { chartOptions, seriesOptions } from "@/lib/chart-config";
 import {
@@ -72,23 +73,12 @@ export function useCandlestickChart(
   };
 
   const fetcher = async (key: CandlesKey) => {
-    const params = new URLSearchParams();
-    params.set("symbol", String(key.symbol));
-    params.set("interval", String(key.interval));
-    params.set("outputsize", String(key.outputsize));
-
-    if (key.before) {
-      params.set("before", String(key.before));
-    }
-
-    const res = await fetch(`/proxy/multiplexer/candles?${params.toString()}`, {
-      method: "GET",
-      credentials: "include",
+    return await getCandles({
+      symbol: String(key.symbol),
+      interval: Number(key.interval),
+      outputsize: Number(key.outputsize),
+      before: key.before ? Number(key.before) : undefined,
     });
-
-    const body = await res.json();
-    if ("error" in body) return [];
-    return body;
   };
 
   const {

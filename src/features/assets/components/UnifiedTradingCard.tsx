@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { useQueryState } from "nuqs";
 import { useState } from "react";
-import { formatUsd } from "@/utils/format";
+import Decimal from "decimal.js";
 import { cls } from "@/utils/general.utils";
 
 function DesktopActionButton(props: {
@@ -37,12 +37,19 @@ function DesktopActionButton(props: {
 }
 
 export function UnifiedTradingCard(props: {
-  totalEquity: number;
-  totalUpnl: number;
+  totalEquity: string;
+  totalUpnl: string;
   onOpenTransactions: () => void;
 }) {
   const [hideAmounts, setHideAmounts] = useState(false);
   const [, setModal] = useQueryState("modal");
+
+  const equityText = new Decimal(props.totalEquity)
+    .toDecimalPlaces(2, Decimal.ROUND_DOWN)
+    .toString();
+  const upnlText = new Decimal(props.totalUpnl)
+    .toDecimalPlaces(2, Decimal.ROUND_DOWN)
+    .toString();
 
   return (
     <div className="rounded-xs border border-border bg-secondary-background">
@@ -64,7 +71,7 @@ export function UnifiedTradingCard(props: {
         <div className="hidden lg:flex items-center gap-2">
           <DesktopActionButton
             tone="primary"
-            label="Adjust Funds"
+            label="Add Funds"
             icon={<BanknoteArrowUp size={16} />}
             onClick={() => void setModal("deposit")}
           />
@@ -85,7 +92,7 @@ export function UnifiedTradingCard(props: {
               "blur-sm select-none": hideAmounts,
             })}
           >
-            {formatUsd(props.totalEquity)}
+            {equityText}
           </div>
           <div className="text-white/50 pb-1">USD</div>
         </div>
@@ -98,7 +105,7 @@ export function UnifiedTradingCard(props: {
             "blur-sm select-none": hideAmounts,
           })}
         >
-          {formatUsd(props.totalUpnl)} USD
+          {upnlText} USD
         </div>
 
         <div className="lg:hidden">
@@ -114,7 +121,7 @@ export function UnifiedTradingCard(props: {
                 <BanknoteArrowUp size={18} className="text-white/80" />
               </div>
               <div className="text-[11px] text-white/70 text-center leading-tight">
-                Adjust Funds
+                Add Funds
               </div>
             </button>
 

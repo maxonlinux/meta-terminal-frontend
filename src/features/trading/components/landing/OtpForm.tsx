@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import useSWR from "swr";
 import { useCountdown } from "usehooks-ts";
 import { ApiError } from "@/api/http";
+import { generateOtp, validateOtp } from "@/api/otp";
 import { CustomOtpField } from "@/components/ui/CustomOtpFIeld";
 import type { ActivateForm } from "@/features/auth/types";
 import { useOtpActionStore } from "@/stores/useOtpActionStore";
@@ -22,20 +23,15 @@ export function OtpForm({ username }: { username: string }) {
   const { data, error, isValidating, mutate } = useSWR(
     `otp:generate`,
     async () => {
-      const res = await fetch("/proxy/main/api/v1/otp/generate", {
-        method: "POST",
-        credentials: "include",
-        body: JSON.stringify({ username }),
-      });
-      if (!res.ok) {
-        const body = await res.json();
+      const res = await generateOtp({ username });
+      if (!res.res.ok) {
         throw new ApiError({
-          status: res.status,
-          code: body?.error ?? "REQUEST_FAILED",
-          body,
+          status: res.res.status,
+          code: res.body?.error ?? "REQUEST_FAILED",
+          body: res.body,
         });
       }
-      const text = await res.text();
+      const text = res.body?.message ?? "OTP sent";
 
       resetCountdown();
       startCountdown();
@@ -59,17 +55,12 @@ export function OtpForm({ username }: { username: string }) {
 
   const onSubmit = async (data: ActivateForm) => {
     try {
-      const res = await fetch("/proxy/main/api/v1/otp/validate", {
-        method: "POST",
-        credentials: "include",
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) {
-        const body = await res.json();
+      const res = await validateOtp(data);
+      if (!res.res.ok) {
         throw new ApiError({
-          status: res.status,
-          code: body?.error ?? "REQUEST_FAILED",
-          body,
+          status: res.res.status,
+          code: res.body?.error ?? "REQUEST_FAILED",
+          body: res.body,
         });
       }
 
@@ -83,14 +74,12 @@ export function OtpForm({ username }: { username: string }) {
   };
 
   const resendOtp = async () => {
-    const promise = mutate();
-    void toast.promise(promise, {
-      loading: "Sending...",
-      success: () => "OTP re-sent",
-      error: (err) =>
-        err instanceof ApiError ? err.code : "Failed to resend OTP",
-    });
-    await promise;
+    try {
+      await mutate();
+      toast.success("OTP re-sent");
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.code : "Failed to resend OTP");
+    }
   };
 
   return (

@@ -1,7 +1,4 @@
-import {
-  formatScaledInt,
-  parseDecimalToScaledInt,
-} from "@/features/trading/utils/price.format";
+import Decimal from "decimal.js";
 
 export type OrderbookLevel = { price: string; qty: string };
 export type GroupedOrderbook = {
@@ -17,83 +14,57 @@ function stripTrailingZeros(s: string): string {
   return out;
 }
 
-function normalizeDecimal(value: string): string {
-  const raw = value.trim();
-  if (!raw) return raw;
-  const lower = raw.toLowerCase();
-  if (!lower.includes("e")) return raw;
-
-  const n = Number(lower);
-  if (!Number.isFinite(n)) return raw;
-
-  // Cover very small tick sizes like 1e-8 reliably.
-  return stripTrailingZeros(n.toFixed(20));
-}
-
-function scaleFromTickSizeStr(tickSize: string): number {
-  const s = normalizeDecimal(tickSize);
-  const dot = s.indexOf(".");
-  if (dot === -1) return 0;
-  // remove trailing zeros
-  let frac = s.slice(dot + 1);
-  while (frac.endsWith("0")) frac = frac.slice(0, -1);
-  return frac.length;
-}
-
-function safeParseScaleInt(value: string, scale: number): number | null {
-  return parseDecimalToScaledInt(normalizeDecimal(value), scale);
-}
-
-function intCeilDiv(a: number, b: number): number {
-  return Math.floor((a + b - 1) / b);
-}
-
-function bucketPriceInt(params: {
+function bucketPrice(params: {
   side: "BUY" | "SELL";
-  priceInt: number;
-  groupInt: number;
-}): number {
+  price: Decimal;
+  group: Decimal;
+}): Decimal {
   // Bids: bucket down, Asks: bucket up (Bybit-like view).
   if (params.side === "BUY") {
-    return Math.floor(params.priceInt / params.groupInt) * params.groupInt;
+    return params.price.div(params.group).floor().mul(params.group);
   }
-  return intCeilDiv(params.priceInt, params.groupInt) * params.groupInt;
+  return params.price.div(params.group).ceil().mul(params.group);
 }
 
 function groupSide(params: {
   side: "BUY" | "SELL";
   levels: OrderbookLevel[];
-  groupInt: number;
+  group: Decimal;
   scale: number;
 }): OrderbookLevel[] {
-  const byPrice = new Map<number, number>();
+  const byPrice = new Map<string, Decimal>();
 
   for (const l of params.levels) {
-    const p = safeParseScaleInt(l.price, params.scale);
-    if (p === null) continue;
-    const q = Number(l.qty);
-    if (!Number.isFinite(q) || q <= 0) continue;
+    const price = new Decimal(l.price);
+    const qty = new Decimal(l.qty);
+    if (qty.lte(0)) continue;
 
-    const bucket = bucketPriceInt({
+    const bucket = bucketPrice({
       side: params.side,
-      priceInt: p,
-      groupInt: params.groupInt,
+      price,
+      group: params.group,
     });
 
-    byPrice.set(bucket, (byPrice.get(bucket) ?? 0) + q);
+    const key = bucket
+      .toDecimalPlaces(params.scale, Decimal.ROUND_DOWN)
+      .toString();
+    const current = byPrice.get(key) ?? new Decimal(0);
+    byPrice.set(key, current.plus(qty));
   }
 
   const out: OrderbookLevel[] = [];
   for (const [bucket, qty] of byPrice.entries()) {
     out.push({
-      price: stripTrailingZeros(formatScaledInt(bucket, params.scale)),
+      price: stripTrailingZeros(bucket),
       qty: qty.toString(),
     });
   }
 
   out.sort((a, b) => {
-    if (params.side === "BUY") return Number(b.price) - Number(a.price);
-    return Number(a.price) - Number(b.price);
+    const ap = new Decimal(a.price);
+    const bp = new Decimal(b.price);
+    if (params.side === "BUY") return bp.comparedTo(ap);
+    return ap.comparedTo(bp);
   });
   return out;
 }
@@ -101,42 +72,48 @@ function groupSide(params: {
 export function generateOrderbookGroupingOptions(params: {
   tickSize: string;
 }): string[] {
-  const tickNorm = normalizeDecimal(params.tickSize);
-  const scale = scaleFromTickSizeStr(tickNorm);
-  const tickInt = safeParseScaleInt(tickNorm, scale);
-  if (tickInt === null || tickInt <= 0) return ["1"];
+  const tick = new Decimal(params.tickSize);
+  const scale = tick.decimalPlaces() ?? 0;
+  if (tick.lte(0)) return ["1"];
 
   // Bybit-like multipliers: mostly decade-ish steps + a couple of midpoints.
   const multipliers = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 5000, 10000];
 
-  const candidates: number[] = [];
+  const candidates: Decimal[] = [];
   for (const m of multipliers) {
-    const v = tickInt * m;
-    if (!Number.isSafeInteger(v) || v <= 0) continue;
+    const v = tick.mul(m);
+    if (v.lte(0)) continue;
     candidates.push(v);
   }
 
   // Prefer a compact list: start from 10 ticks if possible, then grow.
   const prefer = [10, 100, 1000, 5000, 10000];
-  const chosen = new Set<number>();
+  const chosen = new Map<string, Decimal>();
 
-  const tickIsWhole = scale === 0;
-  if (tickIsWhole) chosen.add(tickInt); // show "1" when tick is whole
+  if (scale === 0) {
+    chosen.set(tick.toString(), tick); // show "1" when tick is whole
+  }
 
   for (const m of prefer) {
-    const v = tickInt * m;
-    if (!Number.isSafeInteger(v) || v <= 0) continue;
-    chosen.add(v);
+    const v = tick.mul(m);
+    if (v.lte(0)) continue;
+    chosen.set(v.toString(), v);
   }
 
   // Fallback: if nothing selected (very small/odd ticks), include tick itself.
-  if (chosen.size === 0) chosen.add(tickInt);
+  if (chosen.size === 0) chosen.set(tick.toString(), tick);
 
   const out = Array.from(chosen.values())
-    .sort((a, b) => a - b)
-    .map((v) => stripTrailingZeros(formatScaledInt(v, scale)));
+    .sort((a, b) => a.comparedTo(b))
+    .map((v) =>
+      stripTrailingZeros(
+        v.toDecimalPlaces(scale, Decimal.ROUND_DOWN).toString(),
+      ),
+    );
 
-  const tickLabel = stripTrailingZeros(formatScaledInt(tickInt, scale));
+  const tickLabel = stripTrailingZeros(
+    tick.toDecimalPlaces(scale, Decimal.ROUND_DOWN).toString(),
+  );
   return [tickLabel, ...out.filter((v) => v !== tickLabel)];
 }
 
@@ -146,16 +123,15 @@ export function groupOrderbook(params: {
   tickSize: string;
   grouping: string;
 }): GroupedOrderbook {
-  const tickNorm = normalizeDecimal(params.tickSize);
-  const scale = scaleFromTickSizeStr(tickNorm);
-  const groupInt = safeParseScaleInt(params.grouping, scale);
-  if (groupInt === null || groupInt <= 0) {
+  const tick = new Decimal(params.tickSize);
+  const scale = tick.decimalPlaces() ?? 0;
+  const group = new Decimal(params.grouping);
+  if (group.lte(0)) {
     return { bids: params.bids, asks: params.asks };
   }
 
   // If grouping == tickSize, short-circuit (no grouping).
-  const tickInt = safeParseScaleInt(tickNorm, scale);
-  if (tickInt !== null && tickInt === groupInt) {
+  if (tick.eq(group)) {
     return { bids: params.bids, asks: params.asks };
   }
 
@@ -163,13 +139,13 @@ export function groupOrderbook(params: {
     bids: groupSide({
       side: "BUY",
       levels: params.bids,
-      groupInt,
+      group,
       scale,
     }),
     asks: groupSide({
       side: "SELL",
       levels: params.asks,
-      groupInt,
+      group,
       scale,
     }),
   };

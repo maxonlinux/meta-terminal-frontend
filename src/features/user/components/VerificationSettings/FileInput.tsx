@@ -1,8 +1,9 @@
+import Decimal from "decimal.js";
 import { Paperclip, Trash2 } from "lucide-react";
 import { type ChangeEvent, useId, useRef } from "react";
 import { Button } from "react-aria-components";
 import FilePreview from "./FilePreview";
-import type { FileUploadState } from "./types";
+import type { FileUploadState } from "../../types";
 
 const allowedFileTypes = ["application/pdf", "image/jpeg", "image/png"];
 
@@ -70,7 +71,13 @@ export default function FileInput({
           <FilePreview file={file} />
           <div className="absolute inset-0 flex items-center justify-center group-hover:hidden">
             <span className="bg-black bg-opacity-50 text-white p-2 rounded text-xs">
-              File Size {(file.size / 1024 / 1024).toFixed(2)} MB
+              File Size{" "}
+              {new Decimal(file.size)
+                .div(1024)
+                .div(1024)
+                .toDecimalPlaces(2, Decimal.ROUND_DOWN)
+                .toString()}{" "}
+              MB
             </span>
           </div>
         </div>

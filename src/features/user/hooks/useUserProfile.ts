@@ -1,4 +1,8 @@
 import useSWR from "swr";
+import {
+  getUserProfile,
+  updateUserProfile as updateUserProfileRequest,
+} from "@/api/user";
 import type { UserProfile } from "@/features/user/types";
 
 export const useUserProfile = () => {
@@ -7,29 +11,15 @@ export const useUserProfile = () => {
     error,
     isLoading,
   } = useSWR<UserProfile | null>(`user:profile`, async () => {
-    try {
-      const res = await fetch("/proxy/main/api/v1/user/profile", {
-        credentials: "include",
-        method: "GET",
-      });
-      const data = await res.json();
-      return data;
-    } catch {
-      return null;
-    }
+    return await getUserProfile();
   });
 
   const updateUserProfile = async (data: {
     name?: string;
     surname?: string;
   }) => {
-    const res = await fetch("/proxy/main/api/v1/user/profile", {
-      method: "PATCH",
-      credentials: "include",
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) return null;
-    return await res.json();
+    const res = await updateUserProfileRequest(data);
+    return res ?? null;
   };
 
   return { userProfile, updateUserProfile, isLoading, error };

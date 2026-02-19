@@ -1,5 +1,6 @@
 "use client";
 
+import Decimal from "decimal.js";
 import { useEffect, useMemo, useRef, useState } from "react";
 import useWebSocket from "react-use-websocket";
 import { wsBaseFromWindow, wsUrl } from "@/lib/ws";
@@ -109,8 +110,7 @@ export function useOrderbook(params: {
   depth: number;
 }) {
   const wsBase = wsBaseFromWindow();
-  const url =
-    wsUrl({ base: wsBase, path: "/proxy/main/ws/market" });
+  const url = wsUrl({ base: wsBase, path: "/proxy/main/ws/market" });
 
   const [bidsMap, setBidsMap] = useState<Map<string, string> | null>(null);
   const [asksMap, setAsksMap] = useState<Map<string, string> | null>(null);
@@ -167,7 +167,7 @@ export function useOrderbook(params: {
       price,
       qty,
     }));
-    items.sort((a, b) => Number(b.price) - Number(a.price));
+    items.sort((a, b) => new Decimal(b.price).comparedTo(new Decimal(a.price)));
     return items.slice(0, params.depth);
   }, [bidsMap, params.depth]);
 
@@ -177,7 +177,7 @@ export function useOrderbook(params: {
       price,
       qty,
     }));
-    items.sort((a, b) => Number(a.price) - Number(b.price));
+    items.sort((a, b) => new Decimal(a.price).comparedTo(new Decimal(b.price)));
     return items.slice(0, params.depth);
   }, [asksMap, params.depth]);
 

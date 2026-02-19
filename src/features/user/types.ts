@@ -7,9 +7,10 @@ export type Wallet = {
 };
 
 export type UserBalance = {
-  currency: string;
-  free: string;
+  asset: string;
+  available: string;
   locked: string;
+  margin?: string;
 };
 
 export type UserPlan = {
@@ -97,4 +98,11 @@ export type KycRequest = {
   createdAt: number;
   updatedAt: number;
   files: KycFile[];
+};
+
+export type FileUploadState = {
+  file: File;
+  name: string;
+  size: number;
+  previewUrl: string | null;
 };

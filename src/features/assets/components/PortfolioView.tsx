@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Decimal from "decimal.js";
 import { Tab, TabList, TabPanel, Tabs } from "react-aria-components";
 import defaultTheme from "tailwindcss/defaultTheme";
 import { useIsMounted, useMediaQuery } from "usehooks-ts";
@@ -13,11 +14,6 @@ import DepositModal from "./DepositModal";
 import { TransactionsPanel } from "./TransactionsPanel";
 import { UnifiedTradingCard } from "./UnifiedTradingCard";
 import WithdrawModal from "./WithdrawModal";
-
-function safeNumber(value: number) {
-  if (Number.isFinite(value)) return value;
-  return 0;
-}
 
 function TabButton(props: { id: string; label: string; count: number }) {
   return (
@@ -51,18 +47,24 @@ export function PortfolioView() {
   const { transactions, isLoading: isTransactionsLoading } =
     useUserTransactions();
 
-  const balances = useMemo(() => userBalances ?? [], [userBalances]);
-  const txs = useMemo(() => transactions ?? [], [transactions]);
+  const balances = useMemo(
+    () => (Array.isArray(userBalances) ? userBalances : []),
+    [userBalances],
+  );
+  const txs = useMemo(
+    () => (Array.isArray(transactions) ? transactions : []),
+    [transactions],
+  );
 
-  const bases = useMemo(() => balances.map((b) => b.currency), [balances]);
+  const bases = useMemo(() => balances.map((b) => b.asset), [balances]);
 
   const priceSymbolByBase = usePriceSymbolMap(bases);
 
-  const [realTimePrices, setRealTimePrices] = useState<Record<string, number>>(
+  const [realTimePrices, setRealTimePrices] = useState<Record<string, string>>(
     {},
   );
 
-  const [unrealizedPnls, setUnrealizedPnls] = useState<Record<string, number>>(
+  const [unrealizedPnls, setUnrealizedPnls] = useState<Record<string, string>>(
     {},
   );
 
@@ -72,10 +74,12 @@ export function PortfolioView() {
   const filteredBalances = useMemo(() => {
     const q = search.trim().toUpperCase();
     const base = balances.filter((b) =>
-      hideZeroBalances ? Number(b.free) !== 0 || Number(b.locked) !== 0 : true,
+      hideZeroBalances
+        ? !new Decimal(b.available).isZero() || !new Decimal(b.locked).isZero()
+        : true,
     );
     if (!q) return base;
-    return base.filter((b) => b.currency.toUpperCase().includes(q));
+    return base.filter((b) => b.asset.toUpperCase().includes(q));
   }, [balances, hideZeroBalances, search]);
 
   const assetsCount = filteredBalances.length;
@@ -86,33 +90,32 @@ export function PortfolioView() {
   };
 
   const totalUpnl = useMemo(() => {
-    let sum = 0;
-
+    let sum = new Decimal(0);
     for (const v of Object.values(unrealizedPnls)) {
-      sum += v;
+      sum = sum.plus(v);
     }
-
     return sum;
   }, [unrealizedPnls]);
 
   const totalEquity = useMemo(() => {
-    let sum = 0;
-
+    let sum = new Decimal(0);
     for (const b of balances) {
-      const symbol = priceSymbolByBase[b.currency];
+      const symbol = priceSymbolByBase[b.asset];
       const price = realTimePrices[symbol];
-      const current = safeNumber(Number(b.free) * price);
-      sum += current;
+      if (!price) continue;
+      const current = new Decimal(b.available).mul(price);
+      sum = sum.plus(current);
     }
-
     return sum;
   }, [balances, realTimePrices, priceSymbolByBase]);
 
   const assetsPanel = (
     <div className="flex flex-col gap-1">
       <UnifiedTradingCard
-        totalEquity={totalEquity}
-        totalUpnl={totalUpnl}
+        totalEquity={totalEquity
+          .toDecimalPlaces(2, Decimal.ROUND_DOWN)
+          .toString()}
+        totalUpnl={totalUpnl.toDecimalPlaces(2, Decimal.ROUND_DOWN).toString()}
         onOpenTransactions={openTransactions}
       />
 

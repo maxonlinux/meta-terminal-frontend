@@ -1,7 +1,7 @@
 "use client";
 
 import useSWR from "swr";
-import { fetchInstrument } from "@/features/trading/api";
+import { fetchInstrument } from "@/api/instruments";
 
 export function useInstrument(params: { symbol: string }) {
   const { data, error, isLoading } = useSWR(

@@ -8,16 +8,16 @@ import { usePosition } from "@/features/trading/hooks/usePosition";
 import { useRealTimePrice } from "@/features/trading/hooks/useRealTimePrice";
 import { useUnrealizedPnl } from "@/features/trading/hooks/useUnrealizedPnl";
 import type { UserBalance } from "@/features/user/types";
-import { formatNumber, formatUsd } from "@/utils/format";
+import Decimal from "decimal.js";
 import { cls } from "@/utils/general.utils";
 
 export function AssetRow(props: {
   balance: UserBalance;
   symbol: string;
-  onPriceUpdate: Dispatch<SetStateAction<Record<string, number>>>;
-  onPnlUpdate: Dispatch<SetStateAction<Record<string, number>>>;
+  onPriceUpdate: Dispatch<SetStateAction<Record<string, string>>>;
+  onPnlUpdate: Dispatch<SetStateAction<Record<string, string>>>;
 }) {
-  const base = props.balance.currency;
+  const base = props.balance.asset;
   const symbol = props.symbol;
 
   const { asset } = useAsset(symbol);
@@ -30,33 +30,34 @@ export function AssetRow(props: {
   const unrealizedPnl = useUnrealizedPnl(position);
 
   useEffect(() => {
-    if (unrealizedPnl) {
-      props.onPnlUpdate((prev) => ({
-        ...prev,
-        [symbol]: unrealizedPnl.toNumber(),
-      }));
-    }
+    if (!unrealizedPnl) return;
+    props.onPnlUpdate((prev) => ({
+      ...prev,
+      [symbol]: unrealizedPnl.toString(),
+    }));
   }, [unrealizedPnl, props.onPnlUpdate, symbol]);
 
   useEffect(() => {
     if (price) {
+      const priceText = new Decimal(price).toString();
       props.onPriceUpdate((prev) => ({
         ...prev,
-        [symbol]: price,
+        [symbol]: priceText,
       }));
     }
   }, [price, symbol, props.onPriceUpdate]);
 
-  const available = Number(props.balance.free);
-  const reserved = Number(props.balance.locked);
+  const available = new Decimal(props.balance.available);
+  const reserved = new Decimal(props.balance.locked);
+  const priceDec = price ? new Decimal(price) : null;
 
-  const valueUsd = price ? available * price : 0;
-  const equityUsd = unrealizedPnl
-    ? unrealizedPnl.toNumber() + valueUsd
-    : valueUsd;
-  const approxUsdText = price ? `≈${formatUsd(equityUsd)} USD` : "≈-- USD";
-  const availableText = `${formatNumber(available)} ${base}`;
-  const reservedText = `${formatNumber(reserved)} ${base}`;
+  const valueUsd = priceDec ? available.mul(priceDec) : new Decimal(0);
+  const equityUsd = unrealizedPnl ? unrealizedPnl.plus(valueUsd) : valueUsd;
+  const approxUsdText = priceDec
+    ? `≈${equityUsd.toDecimalPlaces(2, Decimal.ROUND_DOWN).toString()} USD`
+    : "≈-- USD";
+  const availableText = `${available.toDecimalPlaces(8, Decimal.ROUND_DOWN).toString()} ${base}`;
+  const reservedText = `${reserved.toDecimalPlaces(8, Decimal.ROUND_DOWN).toString()} ${base}`;
 
   return (
     <tr className="hover:bg-white/5 transition-colors">

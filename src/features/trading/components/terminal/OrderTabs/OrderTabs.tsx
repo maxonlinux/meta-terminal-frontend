@@ -14,6 +14,7 @@ import {
   Tabs,
 } from "react-aria-components";
 import { toast } from "sonner";
+import { updatePositionTpSl } from "@/api/trading";
 import { Button } from "@/components/ui/button";
 import { CustomTextField } from "@/components/ui/CustomTextField";
 import { useFills } from "@/features/trading/hooks/useFills";
@@ -30,15 +31,9 @@ import type {
   TradingPosition,
 } from "@/features/trading/types";
 import { cls } from "@/utils/general.utils";
-import { formatDateTime, formatNumber } from "@/utils/format";
+import Decimal from "decimal.js";
 
 type TradingPositionWithSide = TradingPosition & { side: "BUY" | "SELL" };
-
-function formatMaybeNumber(raw: string, decimals = 8) {
-  const n = Number(raw);
-  if (!Number.isFinite(n) || n === 0) return "--";
-  return formatNumber(n, { maxDecimals: decimals });
-}
 
 function PositionTpSlModal(props: {
   position: TradingPositionWithSide;
@@ -67,22 +62,16 @@ function PositionTpSlModal(props: {
     if (isSaving) return;
     setIsSaving(true);
 
-    const res = await fetch(
-      `/proxy/main/api/v1/user/positions?symbol=${props.position.symbol}`,
-      {
-        method: "PATCH",
-        credentials: "include",
-        body: JSON.stringify({
-          tp: takeProfit.trim(),
-          sl: stopLoss.trim(),
-        }),
-      },
-    );
+    const res = await updatePositionTpSl({
+      symbol: props.position.symbol,
+      tp: takeProfit.trim(),
+      sl: stopLoss.trim(),
+    });
 
     setIsSaving(false);
 
-    if (!res.ok) {
-      const body = await res.json().catch(() => null);
+    if (!res.res.ok) {
+      const body = res.body;
       const message =
         body && typeof body.error === "string"
           ? body.error
@@ -165,10 +154,10 @@ function openPositionFrom(
   position: TradingPosition | null,
 ): TradingPositionWithSide | null {
   if (!position) return null;
-  const size = Number(position.size);
-  if (!Number.isFinite(size) || size === 0) return null;
-  const side = size > 0 ? "BUY" : "SELL";
-  return { ...position, side, size: String(Math.abs(size)) };
+  const size = new Decimal(position.size);
+  if (size.isZero()) return null;
+  const side = size.gt(0) ? "BUY" : "SELL";
+  return { ...position, side, size: size.abs().toString() };
 }
 
 const Slash = () => <span className=""> / </span>;
@@ -242,7 +231,13 @@ function OpenOrdersTable(props: {
       <tbody className="">
         {orders.map((o) => {
           const orderPrice =
-            o.type === "LIMIT" ? formatMaybeNumber(o.price, 8) : "MKT";
+            o.type === "LIMIT"
+              ? new Decimal(o.price).isZero()
+                ? "--"
+                : new Decimal(o.price)
+                    .toDecimalPlaces(8, Decimal.ROUND_DOWN)
+                    .toString()
+              : "MKT";
           const direction = o.side;
           return (
             <tr
@@ -261,11 +256,40 @@ function OpenOrdersTable(props: {
                 {direction}
               </td>
               <td className="text-left">{orderPrice}</td>
-              <td className="text-left">{formatMaybeNumber(o.qty, 8)}</td>
-              <td className="text-left">{formatMaybeNumber(o.filled, 8)}</td>
-              <td className="text-left">{formatDateTime(o.updatedAt)}</td>
+              <td className="text-left">
+                {new Decimal(o.qty).isZero()
+                  ? "--"
+                  : new Decimal(o.qty)
+                      .toDecimalPlaces(8, Decimal.ROUND_DOWN)
+                      .toString()}
+              </td>
+              <td className="text-left">
+                {new Decimal(o.filled).isZero()
+                  ? "--"
+                  : new Decimal(o.filled)
+                      .toDecimalPlaces(8, Decimal.ROUND_DOWN)
+                      .toString()}
+              </td>
+              <td className="text-left">
+                {(() => {
+                  const raw = o.updatedAt;
+                  const parsed = typeof raw === "string" ? Number(raw) : raw;
+                  let ts = Number.isFinite(parsed)
+                    ? parsed
+                    : Date.parse(String(raw));
+                  if (!Number.isFinite(ts)) return "--";
+                  if (ts > 1e14) {
+                    ts = Math.floor(ts / 1e6);
+                  } else if (ts > 1e11) {
+                    ts = Math.floor(ts);
+                  } else if (ts > 1e9) {
+                    ts = Math.floor(ts * 1000);
+                  }
+                  return new Date(ts).toLocaleString("sv-SE");
+                })()}
+              </td>
               <td className="text-left font-mono text-xs" title={String(o.id)}>
-                {String(o.id).slice(0, 8)}
+                {String(o.id).slice(-8)}
               </td>
               <td className="text-left">{o.status}</td>
               <td>
@@ -308,10 +332,24 @@ function OrderHistoryTable(props: {
         {orders.map((o) => {
           const direction = o.side;
           const orderPrice =
-            o.type === "LIMIT" ? formatMaybeNumber(o.price, 2) : "MKT";
+            o.type === "LIMIT"
+              ? new Decimal(o.price).isZero()
+                ? "--"
+                : new Decimal(o.price)
+                    .toDecimalPlaces(2, Decimal.ROUND_DOWN)
+                    .toString()
+              : "MKT";
 
-          const filledQty = formatMaybeNumber(o.filled, 8);
-          const orderQty = formatMaybeNumber(o.qty, 8);
+          const filledQty = new Decimal(o.filled).isZero()
+            ? "--"
+            : new Decimal(o.filled)
+                .toDecimalPlaces(8, Decimal.ROUND_DOWN)
+                .toString();
+          const orderQty = new Decimal(o.qty).isZero()
+            ? "--"
+            : new Decimal(o.qty)
+                .toDecimalPlaces(8, Decimal.ROUND_DOWN)
+                .toString();
 
           return (
             <tr
@@ -335,9 +373,26 @@ function OrderHistoryTable(props: {
                 <Slash />
                 <span>{orderQty}</span>
               </td>
-              <td className="text-left">{formatDateTime(o.updatedAt)}</td>
+              <td className="text-left">
+                {(() => {
+                  const raw = o.updatedAt;
+                  const parsed = typeof raw === "string" ? Number(raw) : raw;
+                  let ts = Number.isFinite(parsed)
+                    ? parsed
+                    : Date.parse(String(raw));
+                  if (!Number.isFinite(ts)) return "--";
+                  if (ts > 1e14) {
+                    ts = Math.floor(ts / 1e6);
+                  } else if (ts > 1e11) {
+                    ts = Math.floor(ts);
+                  } else if (ts > 1e9) {
+                    ts = Math.floor(ts * 1000);
+                  }
+                  return new Date(ts).toLocaleString("sv-SE");
+                })()}
+              </td>
               <td className="text-left font-mono text-xs" title={String(o.id)}>
-                {String(o.id).slice(0, 8)}
+                {String(o.id).slice(-8)}
               </td>
               <td className="text-left">{o.status}</td>
             </tr>
@@ -365,9 +420,8 @@ function TradeHistoryTable(props: {
           <th className="text-left">Order Type</th>
           <th className="text-left">Direction</th>
           <th className="text-left">Filled Price</th>
-          <th className="text-left">Filled Price</th>
           <th className="text-left">Filled Qty</th>
-          <th className="text-left">Filled Type</th>
+          <th className="text-left">Role</th>
           <th className="text-left">Transaction ID</th>
           <th className="text-left">Transaction Time</th>
         </tr>
@@ -391,13 +445,42 @@ function TradeHistoryTable(props: {
               >
                 {direction}
               </td>
-              <td className="text-left">{formatMaybeNumber(t.price, 8)}</td>
-              <td className="text-left">{formatMaybeNumber(t.qty, 8)}</td>
-              <td className="text-left">Trade</td>
-              <td className="text-left font-mono text-xs" title={String(t.id)}>
-                {String(t.id).slice(0, 8)}
+              <td className="text-left">
+                {new Decimal(t.price).isZero()
+                  ? "--"
+                  : new Decimal(t.price)
+                      .toDecimalPlaces(8, Decimal.ROUND_DOWN)
+                      .toString()}
               </td>
-              <td className="text-left">{formatDateTime(t.timestamp)}</td>
+              <td className="text-left">
+                {new Decimal(t.qty).isZero()
+                  ? "--"
+                  : new Decimal(t.qty)
+                      .toDecimalPlaces(8, Decimal.ROUND_DOWN)
+                      .toString()}
+              </td>
+              <td className="text-left">{t.role}</td>
+              <td className="text-left font-mono text-xs" title={String(t.id)}>
+                {String(t.id).slice(-8)}
+              </td>
+              <td className="text-left">
+                {(() => {
+                  const raw = t.timestamp;
+                  const parsed = typeof raw === "string" ? Number(raw) : raw;
+                  let ts = Number.isFinite(parsed)
+                    ? parsed
+                    : Date.parse(String(raw));
+                  if (!Number.isFinite(ts)) return "--";
+                  if (ts > 1e14) {
+                    ts = Math.floor(ts / 1e6);
+                  } else if (ts > 1e11) {
+                    ts = Math.floor(ts);
+                  } else if (ts > 1e9) {
+                    ts = Math.floor(ts * 1000);
+                  }
+                  return new Date(ts).toLocaleString("sv-SE");
+                })()}
+              </td>
             </tr>
           );
         })}
@@ -413,6 +496,8 @@ function PnLHistoryTable(props: { rows: TradingPnL[] }) {
     <table className="w-full whitespace-nowrap text-current/60">
       <thead className="sticky top-0 z-10 bg-secondary-background">
         <tr className="*:px-3 *:py-2 *:font-semibold *:text-current/50 *:text-[11px] bg-black/10">
+          <th className="text-left">Market</th>
+          <th className="text-left">Instrument</th>
           <th className="text-left">Time</th>
           <th className="text-left">Side</th>
           <th className="text-left">Qty</th>
@@ -423,7 +508,26 @@ function PnLHistoryTable(props: { rows: TradingPnL[] }) {
       <tbody className="divide-y divide-white/10">
         {props.rows.map((row) => (
           <tr key={row.id} className="*:px-3 *:py-3 text-xs hover:bg-white/5">
-            <td className="text-left">{formatDateTime(row.createdAt)}</td>
+            <td className="text-left">{row.symbol}</td>
+            <td className="text-left">{row.category}</td>
+            <td className="text-left">
+              {(() => {
+                const raw = row.createdAt;
+                const parsed = typeof raw === "string" ? Number(raw) : raw;
+                let ts = Number.isFinite(parsed)
+                  ? parsed
+                  : Date.parse(String(raw));
+                if (!Number.isFinite(ts)) return "--";
+                if (ts > 1e14) {
+                  ts = Math.floor(ts / 1e6);
+                } else if (ts > 1e11) {
+                  ts = Math.floor(ts);
+                } else if (ts > 1e9) {
+                  ts = Math.floor(ts * 1000);
+                }
+                return new Date(ts).toLocaleString("sv-SE");
+              })()}
+            </td>
             <td
               className={cls("text-left font-semibold", {
                 "text-green-400": row.side === 0,
@@ -432,15 +536,31 @@ function PnLHistoryTable(props: { rows: TradingPnL[] }) {
             >
               {row.side === 0 ? "BUY" : "SELL"}
             </td>
-            <td className="text-left">{formatMaybeNumber(row.qty)}</td>
-            <td className="text-left">{formatMaybeNumber(row.price)}</td>
+            <td className="text-left">
+              {new Decimal(row.qty).isZero()
+                ? "--"
+                : new Decimal(row.qty)
+                    .toDecimalPlaces(8, Decimal.ROUND_DOWN)
+                    .toString()}
+            </td>
+            <td className="text-left">
+              {new Decimal(row.price).isZero()
+                ? "--"
+                : new Decimal(row.price)
+                    .toDecimalPlaces(8, Decimal.ROUND_DOWN)
+                    .toString()}
+            </td>
             <td
               className={cls("text-left font-semibold", {
-                "text-green-400": Number(row.realized) > 0,
-                "text-red-400": Number(row.realized) < 0,
+                "text-green-400": new Decimal(row.realized).gt(0),
+                "text-red-400": new Decimal(row.realized).lt(0),
               })}
             >
-              {formatMaybeNumber(row.realized)}
+              {new Decimal(row.realized).isZero()
+                ? "--"
+                : new Decimal(row.realized)
+                    .toDecimalPlaces(8, Decimal.ROUND_DOWN)
+                    .toString()}
             </td>
           </tr>
         ))}
@@ -559,19 +679,40 @@ export default function OrderTabs(props: { symbol: string }) {
                       </td>
                       <td className="text-left">{openPosition.size}</td>
                       <td className="text-left">
-                        {formatMaybeNumber(openPosition.entryPrice, 8)}
+                        {new Decimal(openPosition.entryPrice).isZero()
+                          ? "--"
+                          : new Decimal(openPosition.entryPrice)
+                              .toDecimalPlaces(8, Decimal.ROUND_DOWN)
+                              .toString()}
                       </td>
                       <td className="text-left">
-                        x{formatMaybeNumber(openPosition.leverage, 1)}
+                        x
+                        {new Decimal(openPosition.leverage).isZero()
+                          ? "--"
+                          : new Decimal(openPosition.leverage)
+                              .toDecimalPlaces(1, Decimal.ROUND_DOWN)
+                              .toString()}
                       </td>
                       <td className="text-left">
-                        {formatMaybeNumber(openPosition.liqPrice)}
+                        {new Decimal(openPosition.liqPrice).isZero()
+                          ? "--"
+                          : new Decimal(openPosition.liqPrice)
+                              .toDecimalPlaces(8, Decimal.ROUND_DOWN)
+                              .toString()}
                       </td>
                       <td className="text-left">
-                        {formatMaybeNumber(openPosition.takeProfit)}
+                        {new Decimal(openPosition.takeProfit).isZero()
+                          ? "--"
+                          : new Decimal(openPosition.takeProfit)
+                              .toDecimalPlaces(8, Decimal.ROUND_DOWN)
+                              .toString()}
                       </td>
                       <td className="text-left">
-                        {formatMaybeNumber(openPosition.stopLoss)}
+                        {new Decimal(openPosition.stopLoss).isZero()
+                          ? "--"
+                          : new Decimal(openPosition.stopLoss)
+                              .toDecimalPlaces(8, Decimal.ROUND_DOWN)
+                              .toString()}
                       </td>
                       <td className="text-right">
                         <PositionTpSlModal

@@ -4,6 +4,7 @@ import { ArrowRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { logout } from "@/api/auth";
 
 export function LogoutButton() {
   const router = useRouter();
@@ -11,14 +12,11 @@ export function LogoutButton() {
   const handleLogout = async () => {
     const toastId = toast.loading("Logging out...");
 
-    const res = await fetch("/proxy/main/api/v1/auth/logout", {
-      method: "POST",
-      credentials: "include",
-    });
+    const ok = await logout();
 
     toast.dismiss(toastId);
 
-    if (!res.ok) {
+    if (!ok) {
       toast.error("Logout failed");
       return;
     }

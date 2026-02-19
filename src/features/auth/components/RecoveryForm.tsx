@@ -8,6 +8,8 @@ import { Button, Form } from "react-aria-components";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { useCountdown } from "usehooks-ts";
+import { recovery } from "@/api/auth";
+import { generateOtp } from "@/api/otp";
 import { CustomOtpField } from "@/components/ui/CustomOtpFIeld";
 import { CustomTextField } from "@/components/ui/CustomTextField";
 import { SubmitButton } from "@/features/auth/components/SubmitButton";
@@ -36,36 +38,26 @@ const SubmitOtpForm = ({
   const isCooldown = count > 0;
 
   const submit = async (params: { username: string; otp: string }) => {
-    const res = await fetch("/proxy/main/api/v1/auth/recovery", {
-      method: "POST",
-      credentials: "include",
-      body: JSON.stringify({ username: params.username, otp: params.otp }),
-    });
+    const res = await recovery(params);
 
-    if (res.ok) {
+    if (res.res.ok) {
       toast.success("Login success");
       redirect("/settings");
     }
 
-    const body = await res.json();
-    toast.error(body.error);
+    toast.error(res.body?.error ?? "Login failed");
   };
 
   const regenerate = async () => {
-    const res = await fetch("/proxy/main/api/v1/otp/generate", {
-      method: "POST",
-      credentials: "include",
-      body: JSON.stringify({ username }),
-    });
+    const res = await generateOtp({ username });
 
-    if (res.ok) {
+    if (res.res.ok) {
       resetCountdown();
       startCountdown();
       toast.success("OTP sent");
       return;
     }
-    const body = await res.json();
-    toast.error(body.error);
+    toast.error(res.body?.error ?? "Failed to request OTP");
   };
 
   useEffect(() => {
@@ -146,20 +138,15 @@ export default function RecoveryForm() {
   const [otpRequested, setOtpRequested] = useState(false);
 
   const request = async (params: { username: string }) => {
-    const res = await fetch("/proxy/main/api/v1/otp/generate", {
-      method: "POST",
-      credentials: "include",
-      body: JSON.stringify({ username: params.username }),
-    });
+    const res = await generateOtp({ username: params.username });
 
-    if (res.ok) {
+    if (res.res.ok) {
       setOtpRequested(true);
       toast.success("OTP sent");
       return;
     }
 
-    const body = await res.json();
-    toast.error(body.error);
+    toast.error(res.body?.error ?? "Failed to request OTP");
   };
 
   if (otpRequested)

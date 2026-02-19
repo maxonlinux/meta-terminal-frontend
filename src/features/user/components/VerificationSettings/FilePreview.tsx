@@ -1,5 +1,5 @@
 import Image from "next/image";
-import type { FileUploadState } from "./types";
+import type { FileUploadState } from "../../types";
 
 export default function FilePreview({ file }: { file: FileUploadState }) {
   return file.file.type.startsWith("image/") ? (

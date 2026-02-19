@@ -1,7 +1,9 @@
+import Decimal from "decimal.js";
 import { useState } from "react";
 import { Button, Form, type Key, ListBoxItem } from "react-aria-components";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
+import { createOrder, setLeverage } from "@/api/trading";
 import { Skeleton } from "@/components/common/Skeleton";
 import { WithSkeleton } from "@/components/common/WithSkeleton";
 import { CustomNumericField } from "@/components/ui/CustomNumericField";
@@ -46,7 +48,7 @@ export function MarginForm({ instrument }: { instrument: TradingInstrument }) {
   });
 
   const { userBalance, revalidate: revalidateBalance } = useUserBalance({
-    currency: instrument.quote,
+    asset: instrument.quote,
     enabled: true,
   });
 
@@ -81,9 +83,9 @@ export function MarginForm({ instrument }: { instrument: TradingInstrument }) {
     );
   }
 
-  const tickSize = Number(instrument.tickSize);
-  const stepSize = Number(instrument.stepSize);
-  const minQty = Number(instrument.minQty);
+  const tickSize = new Decimal(instrument.tickSize);
+  const stepSize = new Decimal(instrument.stepSize);
+  const minQty = new Decimal(instrument.minQty);
   const pricePrecision = instrument.pricePrecision;
   const qtyPrecision = instrument.quantityPrecision;
 
@@ -92,25 +94,21 @@ export function MarginForm({ instrument }: { instrument: TradingInstrument }) {
 
   const leverage = position ? position.leverage : selectedLeverage;
 
-  const setLeverage = async (next: string) => {
+  const setLeverageValue = async (next: string) => {
     const prev = leverage;
     if (next === prev) return;
 
     setSelectedLeverage(next);
 
-    const res = await fetch(
-      `/proxy/main/api/v1/user/positions/leverage?symbol=${instrument.symbol}`,
-      {
-        credentials: "include",
-        method: "PUT",
-        body: JSON.stringify({ leverage: next }),
-      },
-    );
+    const res = await setLeverage({
+      symbol: instrument.symbol,
+      leverage: new Decimal(next).toNumber(),
+    });
 
-    if (!res.ok) {
+    if (!res.res.ok) {
       setSelectedLeverage(prev);
-      const body = await res.json();
-      toast.error(body.error);
+      const body = res.body as { error?: string } | null;
+      toast.error(body?.error ?? "Failed to update leverage");
       return;
     }
 
@@ -125,24 +123,20 @@ export function MarginForm({ instrument }: { instrument: TradingInstrument }) {
     const orderPrice = isLimit ? String(data.price) : null;
     const qty = String(data.qty);
 
-    const res = await fetch("/proxy/main/api/v1/user/orders", {
-      method: "POST",
-      credentials: "include",
-      body: JSON.stringify({
-        symbol: instrument.symbol,
-        category: "LINEAR",
-        side: data.side,
-        type: data.type,
-        timeInForce,
-        qty,
-        price: orderPrice,
-        reduceOnly: false,
-      }),
+    const res = await createOrder({
+      symbol: instrument.symbol,
+      category: "LINEAR",
+      side: data.side,
+      type: data.type,
+      timeInForce,
+      qty,
+      price: orderPrice ?? undefined,
+      reduceOnly: false,
     });
 
-    if (!res.ok) {
-      const body = await res.json();
-      toast.error(body.error);
+    if (!res.res.ok) {
+      const body = res.body as { error?: string } | null;
+      toast.error(body?.error ?? "Failed to create order");
       return;
     }
 
@@ -177,7 +171,7 @@ export function MarginForm({ instrument }: { instrument: TradingInstrument }) {
             selectedKey: leverage,
             onSelectionChange: (key) => {
               if (typeof key !== "string") return;
-              setLeverage(key);
+              setLeverageValue(key);
             },
           }}
         >
@@ -207,8 +201,8 @@ export function MarginForm({ instrument }: { instrument: TradingInstrument }) {
                     "opacity-30 pointer-events-none": !isLimit,
                   }),
                   isDisabled: !isLimit,
-                  minValue: tickSize / 10,
-                  step: tickSize,
+                  minValue: tickSize.div(10).toNumber(),
+                  step: tickSize.toNumber(),
                   formatOptions: {
                     maximumFractionDigits: pricePrecision,
                   },
@@ -234,9 +228,13 @@ export function MarginForm({ instrument }: { instrument: TradingInstrument }) {
               <CustomNumericField
                 numberFieldProps={{
                   minValue:
-                    Number.isFinite(minQty) && minQty > 0 ? minQty : 0.01,
+                    minQty.isFinite() && minQty.gt(0)
+                      ? minQty.toNumber()
+                      : new Decimal("0.01").toNumber(),
                   step:
-                    Number.isFinite(stepSize) && stepSize > 0 ? stepSize : 0.01,
+                    stepSize.isFinite() && stepSize.gt(0)
+                      ? stepSize.toNumber()
+                      : new Decimal("0.01").toNumber(),
                   formatOptions: {
                     maximumFractionDigits: qtyPrecision,
                   },
@@ -317,7 +315,10 @@ export function MarginForm({ instrument }: { instrument: TradingInstrument }) {
           >
             {({ userBalance }) => (
               <p className="font-semibold">
-                {(+userBalance.free).toLocaleString()} {quote}
+                {new Decimal(userBalance.available)
+                  .toDecimalPlaces(pricePrecision, Decimal.ROUND_DOWN)
+                  .toString()}{" "}
+                {quote}
               </p>
             )}
           </WithSkeleton>
@@ -331,7 +332,10 @@ export function MarginForm({ instrument }: { instrument: TradingInstrument }) {
           >
             {({ userBalance }) => (
               <p className="font-semibold">
-                {(+userBalance.locked).toLocaleString()} {quote}
+                {new Decimal(userBalance.locked)
+                  .toDecimalPlaces(pricePrecision, Decimal.ROUND_DOWN)
+                  .toString()}{" "}
+                {quote}
               </p>
             )}
           </WithSkeleton>

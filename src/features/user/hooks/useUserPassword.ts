@@ -1,3 +1,4 @@
+import { updateUserPassword as updateUserPasswordRequest } from "@/api/user";
 import { useOtpActionStore } from "@/stores/useOtpActionStore";
 
 export const useUserPassword = () => {
@@ -7,18 +8,14 @@ export const useUserPassword = () => {
     oldPassword: string;
     newPassword: string;
   }) => {
-    const res = await fetch("/proxy/main/api/v1/user/settings/password", {
-      credentials: "include",
-      method: "PUT",
-      body: JSON.stringify(data),
-    });
+    const res = await updateUserPasswordRequest(data);
 
-    if (res.status === 428) {
+    if (res.res.status === 428) {
       setOtpAction(() => updateUserPassword(data));
       return null;
     }
 
-    return await res.json();
+    return res.body ?? null;
   };
 
   return { updateUserPassword };

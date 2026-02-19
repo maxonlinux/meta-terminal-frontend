@@ -1,6 +1,7 @@
 "use client";
 
 import { Search, SlidersHorizontal } from "lucide-react";
+import Decimal from "decimal.js";
 import { type Dispatch, type SetStateAction, useMemo } from "react";
 import {
   Button,
@@ -16,34 +17,37 @@ import { AssetRow } from "./AssetRow";
 function bybitSort(
   a: UserBalance,
   b: UserBalance,
-  prices: Record<string, number>,
+  prices: Record<string, string>,
 ) {
-  if (a.currency === "USDT" && b.currency !== "USDT") return -1;
-  if (b.currency === "USDT" && a.currency !== "USDT") return 1;
+  if (a.asset === "USDT" && b.asset !== "USDT") return -1;
+  if (b.asset === "USDT" && a.asset !== "USDT") return 1;
 
-  const pa = a.currency === "USDT" ? 1 : (prices[a.currency] ?? 0);
-  const pb = b.currency === "USDT" ? 1 : (prices[b.currency] ?? 0);
-  const ea = Number(a.free) * pa;
-  const eb = Number(b.free) * pb;
+  const pa =
+    a.asset === "USDT" ? new Decimal(1) : new Decimal(prices[a.asset] ?? "0");
+  const pb =
+    b.asset === "USDT" ? new Decimal(1) : new Decimal(prices[b.asset] ?? "0");
+  const ea = new Decimal(a.available).mul(pa);
+  const eb = new Decimal(b.available).mul(pb);
 
-  if (ea !== eb) return eb - ea;
-  return a.currency.localeCompare(b.currency);
+  const cmp = eb.comparedTo(ea);
+  if (cmp !== 0) return cmp;
+  return a.asset.localeCompare(b.asset);
 }
 
 const Rows = (props: {
   rows: UserBalance[];
-  onPriceUpdate: Dispatch<SetStateAction<Record<string, number>>>;
-  onPnlUpdate: Dispatch<SetStateAction<Record<string, number>>>;
+  onPriceUpdate: Dispatch<SetStateAction<Record<string, string>>>;
+  onPnlUpdate: Dispatch<SetStateAction<Record<string, string>>>;
   priceSymbolByBase: Record<string, string | null>;
 }) => {
   return props.rows.map((b) => {
-    const symbol = props.priceSymbolByBase[b.currency];
+    const symbol = props.priceSymbolByBase[b.asset];
 
     if (!symbol) return null;
 
     return (
       <AssetRow
-        key={b.currency}
+        key={b.asset}
         balance={b}
         onPriceUpdate={props.onPriceUpdate}
         onPnlUpdate={props.onPnlUpdate}
@@ -55,11 +59,11 @@ const Rows = (props: {
 
 export function AssetsTable(props: {
   balances: UserBalance[];
-  prices: Record<string, number>;
+  prices: Record<string, string>;
   priceSymbolByBase: Record<string, string>;
-  onPriceUpdate: Dispatch<SetStateAction<Record<string, number>>>;
-  unrealizedPnls: Record<string, number>;
-  onPnlUpdate: Dispatch<SetStateAction<Record<string, number>>>;
+  onPriceUpdate: Dispatch<SetStateAction<Record<string, string>>>;
+  unrealizedPnls: Record<string, string>;
+  onPnlUpdate: Dispatch<SetStateAction<Record<string, string>>>;
   search: string;
   setSearch: Dispatch<SetStateAction<string>>;
   hideZeroBalances: boolean;

@@ -20,7 +20,6 @@ import {
 } from "react-aria-components";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { ApiError } from "@/api/http";
 import { CustomNumericField } from "@/components/ui/CustomNumericField";
 import { CustomSelect } from "@/components/ui/CustomSelect";
 import { CustomTextField } from "@/components/ui/CustomTextField";
@@ -94,20 +93,16 @@ export default function WithdrawModal(params: { showTrigger: boolean }) {
     if (!data.amount) return;
 
     try {
-      const promise = createWithdrawalTransaction({
+      const res = await createWithdrawalTransaction({
         asset: currency,
         amount: data.amount,
         destination: data.address,
       });
-      void toast.promise(promise, {
-        loading: "Processing...",
-        success: () => "Withdrawal request created",
-        error: (err) =>
-          err instanceof ApiError
-            ? err.code
-            : "Failed to create withdrawal request",
-      });
-      await promise;
+      if (!res) {
+        toast.error("Failed to create withdrawal request");
+        return;
+      }
+      toast.success("Withdrawal request created");
     } finally {
       close();
     }
@@ -120,9 +115,7 @@ export default function WithdrawModal(params: { showTrigger: boolean }) {
     <DialogTrigger
       isOpen={isOpen}
       onOpenChange={(isOpen) => {
-        if (!isOpen) {
-          close();
-        }
+        if (!isOpen) close();
       }}
     >
       <Button
@@ -176,7 +169,7 @@ export default function WithdrawModal(params: { showTrigger: boolean }) {
                   </Heading>
 
                   <Form
-                    onSubmit={(e) => void handleSubmit(onSubmit)(e)}
+                    onSubmit={(e) => handleSubmit(onSubmit)(e)}
                     className="flex flex-col gap-4 p-4"
                   >
                     <Controller

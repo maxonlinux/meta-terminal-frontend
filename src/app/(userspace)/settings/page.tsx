@@ -1,7 +1,7 @@
-import AccountSettings from "@/features/user/components/settings/AccountSettings/AccountSettings";
-import PrivacySettings from "@/features/user/components/settings/PrivacySettings";
-import SecuritySettings from "@/features/user/components/settings/SecuritySettings/SecuritySettings";
-import VerificationSettings from "@/features/user/components/settings/VerificationSettings";
+import AccountSettings from "@/features/user/components/AccountSettings/AccountSettings";
+import PrivacySettings from "@/features/user/components/PrivacySettings";
+import SecuritySettings from "@/features/user/components/SecuritySettings/SecuritySettings";
+import VerificationSettings from "@/features/user/components/VerificationSettings/VerificationSettings";
 import { cls } from "@/utils/general.utils";
 
 export const dynamic = "force-dynamic";

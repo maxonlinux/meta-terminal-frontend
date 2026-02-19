@@ -1,7 +1,9 @@
 import { Info, LockKeyhole } from "lucide-react";
 import { Button, Form, Group, Radio, RadioGroup } from "react-aria-components";
 import { Controller, useForm, useWatch } from "react-hook-form";
+import Decimal from "decimal.js";
 import { toast } from "sonner";
+import { createOrder } from "@/api/trading";
 import { Skeleton } from "@/components/common/Skeleton";
 import { WithSkeleton } from "@/components/common/WithSkeleton";
 import { CustomNumericField } from "@/components/ui/CustomNumericField";
@@ -52,29 +54,29 @@ const Hint = ({
   }
 
   const calculateTotal = () => {
-    if (!amount) return null;
+    const amountDec = new Decimal(amount || 0);
+    if (amountDec.lte(0)) return null;
 
-    let actualPrice = 0;
+    const actualPrice = isLimit
+      ? new Decimal(limitPrice || 0)
+      : new Decimal(price);
 
-    if (isLimit && limitPrice) {
-      actualPrice = limitPrice;
-    }
+    if (!actualPrice.isFinite() || actualPrice.lte(0)) return null;
 
-    if (!isLimit) {
-      actualPrice = price;
-    }
-
-    return amount * actualPrice;
+    return amountDec.mul(actualPrice);
   };
 
   const total = calculateTotal();
 
   const calculateExceeded = () => {
-    if (!amount) return false;
     if (!total) return false;
 
-    if (side === "BUY") return total > Number(availableBalance);
-    if (side === "SELL") return amount > Number(availableAssets);
+    const balanceDec = new Decimal(availableBalance);
+    const assetsDec = new Decimal(availableAssets);
+    const amountDec = new Decimal(amount || 0);
+
+    if (side === "BUY") return total.gt(balanceDec);
+    if (side === "SELL") return amountDec.gt(assetsDec);
 
     return false;
   };
@@ -92,7 +94,10 @@ const Hint = ({
           "text-red-400": isExceeded,
         })}
       >
-        {total ? total.toFixed(2) : "****"} {currency}
+        {total
+          ? total.toDecimalPlaces(2, Decimal.ROUND_DOWN).toString()
+          : "****"}{" "}
+        {currency}
       </span>
     </div>
   );
@@ -119,18 +124,17 @@ const PercentageButtons = ({
 }) => {
   const { price: realTimePrice } = useRealTimePrice(symbol);
 
-  let effectivePrice: number | null = null;
-  if (isLimit && Number.isFinite(limitPrice) && limitPrice > 0) {
-    effectivePrice = limitPrice;
+  let effectivePrice: Decimal | null = null;
+  if (isLimit) {
+    const limit = new Decimal(limitPrice || 0);
+    if (limit.gt(0)) effectivePrice = limit;
   } else if (typeof realTimePrice === "number") {
-    effectivePrice = realTimePrice;
+    effectivePrice = new Decimal(realTimePrice);
   }
   if (!effectivePrice) return null;
 
-  const floorToPrecision = (value: number) => {
-    const factor = 10 ** precision;
-    return Math.floor(value * factor) / factor;
-  };
+  const floorToPrecision = (value: Decimal) =>
+    value.toDecimalPlaces(precision, Decimal.ROUND_DOWN);
 
   return (
     <Group
@@ -142,19 +146,23 @@ const PercentageButtons = ({
           key={perc}
           className="cursor-pointer text-white/50 underline-offset-2 whitespace-nowrap font-semibold hover:underline hover:text-white"
           onPress={() => {
-            let value = 0;
+            let value = new Decimal(0);
 
             if (side === "BUY") {
+              const balanceDec = new Decimal(availableBalance);
+              const percent = new Decimal(perc);
               value = floorToPrecision(
-                (Number(availableBalance) / effectivePrice) * perc,
+                balanceDec.div(effectivePrice).mul(percent),
               );
             }
 
             if (side === "SELL") {
-              value = floorToPrecision(Number(availableAssets) * perc);
+              const assetsDec = new Decimal(availableAssets);
+              const percent = new Decimal(perc);
+              value = floorToPrecision(assetsDec.mul(percent));
             }
 
-            onSelect(value);
+            onSelect(value.toNumber());
           }}
         >
           {100 * perc}%
@@ -189,13 +197,13 @@ export function SpotForm({ instrument }: { instrument: TradingInstrument }) {
 
   const { userBalance: quoteBal, revalidate: revalidateQuote } = useUserBalance(
     {
-      currency: quote,
+      asset: quote,
       enabled: true,
     },
   );
 
   const { userBalance: baseBal, revalidate: revalidateBase } = useUserBalance({
-    currency: base,
+    asset: base,
     enabled: true,
   });
 
@@ -211,8 +219,8 @@ export function SpotForm({ instrument }: { instrument: TradingInstrument }) {
     );
   }
 
-  const tickSize = Number(instrument.tickSize);
-  const stepSize = Number(instrument.stepSize);
+  const tickSize = new Decimal(instrument.tickSize);
+  const stepSize = new Decimal(instrument.stepSize);
   const pricePrecision = instrument.pricePrecision;
   const qtyPrecision = instrument.quantityPrecision;
 
@@ -224,23 +232,19 @@ export function SpotForm({ instrument }: { instrument: TradingInstrument }) {
     const orderPrice = isLimit ? String(data.price) : null;
     const qty = String(data.amount);
 
-    const res = await fetch("/proxy/main/api/v1/user/orders", {
-      method: "POST",
-      credentials: "include",
-      body: JSON.stringify({
-        symbol: instrument.symbol,
-        category: "SPOT",
-        side: data.side,
-        type: data.type,
-        timeInForce,
-        qty,
-        price: orderPrice,
-      }),
+    const res = await createOrder({
+      symbol: instrument.symbol,
+      category: "SPOT",
+      side: data.side,
+      type: data.type,
+      timeInForce,
+      qty,
+      price: orderPrice ?? undefined,
     });
 
-    if (!res.ok) {
-      const body = await res.json();
-      toast.error(body.error ?? "Failed to create order");
+    if (!res.res.ok) {
+      const body = res.body as { error?: string } | null;
+      toast.error(body?.error ?? "Failed to create order");
       return;
     }
 
@@ -298,8 +302,8 @@ export function SpotForm({ instrument }: { instrument: TradingInstrument }) {
                   "opacity-30 pointer-events-none": !isLimit,
                 }),
                 isDisabled: !isLimit,
-                minValue: tickSize / 10,
-                step: tickSize,
+                minValue: tickSize.div(10).toNumber(),
+                step: tickSize.toNumber(),
                 formatOptions: { maximumFractionDigits: pricePrecision },
                 ...field,
                 isInvalid: fieldState.invalid,
@@ -326,7 +330,7 @@ export function SpotForm({ instrument }: { instrument: TradingInstrument }) {
                   formatOptions: {
                     maximumFractionDigits: qtyPrecision,
                   },
-                  step: stepSize,
+                  step: stepSize.toNumber(),
                   ...field,
                   isInvalid: fieldState.invalid,
                 }}
@@ -344,8 +348,8 @@ export function SpotForm({ instrument }: { instrument: TradingInstrument }) {
           <PercentageButtons
             symbol={instrument.symbol}
             side={side}
-            availableBalance={quoteBal.free}
-            availableAssets={baseBal.free}
+            availableBalance={quoteBal.available}
+            availableAssets={baseBal.available}
             precision={qtyPrecision}
             isLimit={isLimit}
             limitPrice={price}
@@ -366,12 +370,14 @@ export function SpotForm({ instrument }: { instrument: TradingInstrument }) {
               Avaliable {quote}
             </span>
             <WithSkeleton
-              data={{ availableBalance: quoteBal.free }}
+              data={{ availableBalance: quoteBal.available }}
               skeleton={<Skeleton className="h-3 w-8" />}
             >
               {({ availableBalance }) => (
                 <p className="font-semibold">
-                  {(+availableBalance).toLocaleString()}
+                  {new Decimal(availableBalance)
+                    .toDecimalPlaces(pricePrecision, Decimal.ROUND_DOWN)
+                    .toString()}
                 </p>
               )}
             </WithSkeleton>
@@ -383,12 +389,14 @@ export function SpotForm({ instrument }: { instrument: TradingInstrument }) {
                 Available {base}
               </span>
               <WithSkeleton
-                data={{ availableAssets: baseBal.free }}
+                data={{ availableAssets: baseBal.available }}
                 skeleton={<Skeleton className="h-3 w-8" />}
               >
                 {({ availableAssets }) => (
                   <p className="font-semibold">
-                    {(+availableAssets).toLocaleString()}
+                    {new Decimal(availableAssets)
+                      .toDecimalPlaces(qtyPrecision, Decimal.ROUND_DOWN)
+                      .toString()}
                   </p>
                 )}
               </WithSkeleton>
@@ -403,8 +411,8 @@ export function SpotForm({ instrument }: { instrument: TradingInstrument }) {
           isLimit={isLimit}
           currency={quote}
           limitPrice={price}
-          availableBalance={quoteBal.free}
-          availableAssets={baseBal.free}
+          availableBalance={quoteBal.available}
+          availableAssets={baseBal.available}
         />
 
         <Button

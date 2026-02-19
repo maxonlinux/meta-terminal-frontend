@@ -1,5 +1,5 @@
 import useSWR from "swr";
-import { fetchAsset } from "@/features/assets/api";
+import { fetchAsset } from "@/api/assets";
 import type { AssetData } from "@/features/assets/types";
 import { useAssets } from "./useAssets";
 
