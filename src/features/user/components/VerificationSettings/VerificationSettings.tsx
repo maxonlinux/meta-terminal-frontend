@@ -17,8 +17,8 @@ import { CustomCountrySelect } from "@/components/ui/CustomCountrySelect";
 import { CustomTextField } from "@/components/ui/CustomTextField";
 import { useKyc } from "@/features/user/hooks/useKyc";
 import { cls } from "@/utils/general.utils";
-import FileInput from "./FileInput";
 import type { FileUploadState } from "../../types";
+import FileInput from "./FileInput";
 
 export default function VerificationSettings() {
   const locale = "en";

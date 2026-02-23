@@ -18,7 +18,7 @@ export async function register(data: {
   password: string;
   phone: string;
 }) {
-  return requestJson<{ userId?: number; error?: string }>(
+  return requestJson<{ userId?: string; error?: string }>(
     "/proxy/main/api/v1/auth/register",
     {
       method: "POST",

@@ -1,10 +1,10 @@
 import { useEffect } from "react";
 import useWebSocket from "react-use-websocket";
 import useSWR, { mutate as swrMutate } from "swr";
+import { getLastCandle } from "@/api/multiplexer";
 import type { Candle } from "@/features/assets/types";
 import { useWebsocketBaseUrl } from "@/features/trading/hooks/useWebsocketBaseUrl";
 import { useWsReconnectStatusStore } from "@/stores/useWsReconnectStatusStore";
-import { getLastCandle } from "@/api/multiplexer";
 
 type CandleMessage = Candle & { symbol: string; interval: number };
 

@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
 import Decimal from "decimal.js";
+import { useEffect, useMemo, useState } from "react";
 import { ListBoxItem } from "react-aria-components";
 import { Skeleton } from "@/components/common/Skeleton";
 import { CustomSelect } from "@/components/ui/CustomSelect";
@@ -11,6 +11,7 @@ import {
   generateOrderbookGroupingOptions,
   groupOrderbook,
 } from "@/features/trading/utils/orderbook.grouping";
+import { formatDecimal } from "@/lib/decimal";
 
 const ORDERS_LENGTH = 11;
 
@@ -34,6 +35,24 @@ const HUNDRED = new Decimal(100);
 
 function clampPct(value: Decimal): Decimal {
   return Decimal.min(HUNDRED, Decimal.max(ZERO, value));
+}
+
+function spreadText(params: {
+  bestBid?: string | null;
+  bestAsk?: string | null;
+  pricePrecision: number;
+}): string {
+  if (!params.bestBid || !params.bestAsk) return "--";
+  const bid = new Decimal(params.bestBid);
+  const ask = new Decimal(params.bestAsk);
+  if (!bid.isFinite() || !ask.isFinite()) return "--";
+  const spread = ask.minus(bid);
+  if (!spread.isFinite()) return "--";
+  const spreadPct = ask.isZero() ? ZERO : spread.div(ask).mul(HUNDRED);
+  return `${formatDecimal(spread, params.pricePrecision)} (${formatDecimal(
+    spreadPct,
+    2,
+  )}%)`;
 }
 
 type Level = { price: string; qty: string };
@@ -236,30 +255,18 @@ const HoverCard = (params: {
       <div className="flex gap-3 justify-between">
         <span>Avg. Price</span>
         <span className="tabular-nums">
-          {avg.isFinite()
-            ? avg
-                .toDecimalPlaces(params.pricePrecision, Decimal.ROUND_DOWN)
-                .toString()
-            : "--"}
+          {formatDecimal(avg, params.pricePrecision)}
         </span>
       </div>
       <div className="flex gap-3 justify-between">
         <span>Total Qty</span>
         <span className="tabular-nums">
-          {tq.isFinite()
-            ? tq
-                .toDecimalPlaces(params.qtyPrecision, Decimal.ROUND_DOWN)
-                .toString()
-            : "--"}
+          {formatDecimal(tq, params.qtyPrecision)}
         </span>
       </div>
       <div className="flex gap-3 justify-between">
         <span>Total (USDT)</span>
-        <span className="tabular-nums">
-          {tn.isFinite()
-            ? tn.toDecimalPlaces(3, Decimal.ROUND_DOWN).toString()
-            : "--"}
-        </span>
+        <span className="tabular-nums">{formatDecimal(tn, 3)}</span>
       </div>
     </div>
   );
@@ -313,18 +320,12 @@ const OrderBookItem = ({
 
   const priceDec = level ? new Decimal(level.price) : null;
   const qtyDec = level ? new Decimal(level.qty) : ZERO;
-  const priceText = priceDec
-    ? priceDec.toDecimalPlaces(pricePrecision, Decimal.ROUND_DOWN).toString()
-    : "--";
+  const priceText = level ? formatDecimal(level.price, pricePrecision) : "--";
 
-  const quantityText = level
-    ? qtyDec.toDecimalPlaces(qtyPrecision, Decimal.ROUND_DOWN).toString()
-    : "--";
+  const quantityText = level ? formatDecimal(qtyDec, qtyPrecision) : "--";
 
   const total = priceDec ? priceDec.mul(qtyDec) : null;
-  const totalText = total
-    ? total.toDecimalPlaces(3, Decimal.ROUND_DOWN).toString()
-    : "--";
+  const totalText = total ? formatDecimal(total, 3) : "--";
 
   const widthPct = maxQuantity.gt(0)
     ? qtyDec.div(maxQuantity).mul(HUNDRED)
@@ -391,9 +392,9 @@ const OrderBookSide = (params: {
   overlay: Overlay;
   hover: Hover;
   hoverStats: {
-    totalQty: number;
-    totalNotional: number;
-    avgPrice: number;
+    totalQty: Decimal;
+    totalNotional: Decimal;
+    avgPrice: Decimal;
   } | null;
   pricePrecision: number;
   qtyPrecision: number;

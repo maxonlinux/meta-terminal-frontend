@@ -4,6 +4,7 @@ import Decimal from "decimal.js";
 import { Crown } from "lucide-react";
 import useSWR from "swr";
 import { getUserPlan } from "@/api/user";
+import { formatDecimal } from "@/lib/decimal";
 
 function normalizePlanName(name: string | null) {
   if (!name) return "None";
@@ -51,8 +52,7 @@ export default function PlanProgress() {
             Next plan: {normalizePlanName(next)}
           </div>
           <div className="text-xs text-white/50">
-            Remaining to reach it: $
-            {remaining.toDecimalPlaces(2, Decimal.ROUND_DOWN).toString()}
+            Remaining to reach it: ${formatDecimal(remaining, 2)}
           </div>
           {showProgress ? (
             <div className="mt-2 h-1.5 w-full rounded-full bg-black/20">

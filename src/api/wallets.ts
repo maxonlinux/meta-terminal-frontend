@@ -1,5 +1,5 @@
-import type { Wallet } from "@/features/user/types";
 import { requestJson } from "@/api/http";
+import type { Wallet } from "@/features/user/types";
 
 export const fetchWallets = async (): Promise<Wallet[]> => {
   const { res, body } = await requestJson<Wallet[]>(

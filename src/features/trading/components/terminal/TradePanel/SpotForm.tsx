@@ -1,7 +1,7 @@
+import Decimal from "decimal.js";
 import { Info, LockKeyhole } from "lucide-react";
 import { Button, Form, Group, Radio, RadioGroup } from "react-aria-components";
 import { Controller, useForm, useWatch } from "react-hook-form";
-import Decimal from "decimal.js";
 import { toast } from "sonner";
 import { createOrder } from "@/api/trading";
 import { Skeleton } from "@/components/common/Skeleton";
@@ -14,6 +14,7 @@ import type {
   TradingSide,
 } from "@/features/trading/types";
 import { useUserBalance } from "@/features/user/hooks/useUserBalance";
+import { formatDecimal } from "@/lib/decimal";
 import { cls } from "@/utils/general.utils";
 import { MarketSelect } from "./MarketSelect";
 
@@ -94,10 +95,7 @@ const Hint = ({
           "text-red-400": isExceeded,
         })}
       >
-        {total
-          ? total.toDecimalPlaces(2, Decimal.ROUND_DOWN).toString()
-          : "****"}{" "}
-        {currency}
+        {total ? formatDecimal(total, 2) : "****"} {currency}
       </span>
     </div>
   );
@@ -375,9 +373,7 @@ export function SpotForm({ instrument }: { instrument: TradingInstrument }) {
             >
               {({ availableBalance }) => (
                 <p className="font-semibold">
-                  {new Decimal(availableBalance)
-                    .toDecimalPlaces(pricePrecision, Decimal.ROUND_DOWN)
-                    .toString()}
+                  {formatDecimal(availableBalance, pricePrecision)}
                 </p>
               )}
             </WithSkeleton>
@@ -394,9 +390,7 @@ export function SpotForm({ instrument }: { instrument: TradingInstrument }) {
               >
                 {({ availableAssets }) => (
                   <p className="font-semibold">
-                    {new Decimal(availableAssets)
-                      .toDecimalPlaces(qtyPrecision, Decimal.ROUND_DOWN)
-                      .toString()}
+                    {formatDecimal(availableAssets, qtyPrecision)}
                   </p>
                 )}
               </WithSkeleton>

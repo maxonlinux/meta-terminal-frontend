@@ -1,5 +1,6 @@
 "use client";
 
+import Decimal from "decimal.js";
 import { BanknoteArrowUp, IndentDecrease, IndentIncrease } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
@@ -9,7 +10,7 @@ import { useAsset } from "@/features/assets/hooks/useAsset";
 import type { AssetData, Candle } from "@/features/assets/types";
 import { useRealTimeCandle } from "@/features/trading/hooks/useRealTimeCandle";
 import type { TradingInstrument } from "@/features/trading/types";
-import Decimal from "decimal.js";
+import { formatDecimal } from "@/lib/decimal";
 import { cls } from "@/utils/general.utils";
 import AssetPicker from "./AssetPicker";
 import RecentAssets from "./RecentAssets";
@@ -53,15 +54,15 @@ const AssetInfo = ({
     ? new Decimal(0)
     : change.div(open).mul(100);
 
-  const priceText = price
-    .toDecimalPlaces(pricePrecision, Decimal.ROUND_DOWN)
-    .toString();
-  const changeText = `${change.gt(0) ? "+" : ""}${change
-    .toDecimalPlaces(pricePrecision, Decimal.ROUND_DOWN)
-    .toString()}`;
-  const changePctText = `${changePercentage.gt(0) ? "+" : ""}${changePercentage
-    .toDecimalPlaces(2, Decimal.ROUND_DOWN)
-    .toString()}%`;
+  const priceText = formatDecimal(price, pricePrecision);
+  const changeText = `${change.gt(0) ? "+" : ""}${formatDecimal(
+    change,
+    pricePrecision,
+  )}`;
+  const changePctText = `${changePercentage.gt(0) ? "+" : ""}${formatDecimal(
+    changePercentage,
+    2,
+  )}%`;
 
   return (
     <>

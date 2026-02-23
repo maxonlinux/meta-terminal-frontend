@@ -1,5 +1,6 @@
 "use client";
 
+import Decimal from "decimal.js";
 import Link from "next/link";
 import { type Dispatch, type SetStateAction, useEffect } from "react";
 import AssetImage from "@/components/common/AssetImage";
@@ -8,7 +9,7 @@ import { usePosition } from "@/features/trading/hooks/usePosition";
 import { useRealTimePrice } from "@/features/trading/hooks/useRealTimePrice";
 import { useUnrealizedPnl } from "@/features/trading/hooks/useUnrealizedPnl";
 import type { UserBalance } from "@/features/user/types";
-import Decimal from "decimal.js";
+import { formatDecimal } from "@/lib/decimal";
 import { cls } from "@/utils/general.utils";
 
 export function AssetRow(props: {
@@ -54,10 +55,10 @@ export function AssetRow(props: {
   const valueUsd = priceDec ? available.mul(priceDec) : new Decimal(0);
   const equityUsd = unrealizedPnl ? unrealizedPnl.plus(valueUsd) : valueUsd;
   const approxUsdText = priceDec
-    ? `≈${equityUsd.toDecimalPlaces(2, Decimal.ROUND_DOWN).toString()} USD`
+    ? `≈${formatDecimal(equityUsd, 2)} USD`
     : "≈-- USD";
-  const availableText = `${available.toDecimalPlaces(8, Decimal.ROUND_DOWN).toString()} ${base}`;
-  const reservedText = `${reserved.toDecimalPlaces(8, Decimal.ROUND_DOWN).toString()} ${base}`;
+  const availableText = `${formatDecimal(available, 8)} ${base}`;
+  const reservedText = `${formatDecimal(reserved, 8)} ${base}`;
 
   return (
     <tr className="hover:bg-white/5 transition-colors">

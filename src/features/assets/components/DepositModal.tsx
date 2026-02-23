@@ -26,6 +26,7 @@ import { Controller, useForm } from "react-hook-form";
 import QRCode from "react-qr-code";
 import { toast } from "sonner";
 import useSWR from "swr";
+import { fetchWallets } from "@/api/wallets";
 import { Skeleton } from "@/components/common/Skeleton";
 import { WithSkeleton } from "@/components/common/WithSkeleton";
 import { CustomNumericField } from "@/components/ui/CustomNumericField";
@@ -34,14 +35,13 @@ import { useUserTransactions } from "@/features/user/hooks/useUserTransactions";
 import type { Wallet } from "@/features/user/types";
 import { cls } from "@/utils/general.utils";
 import { PartnerLogos } from "./PartnerLogos";
-import { fetchWallets } from "@/api/wallets";
 
 const AMOUNTS = [500, 1000, 2000, 5000];
 
 const MODAL_NAME = "deposit";
 
 type FormValues = {
-  walletId: number | undefined;
+  walletId: string | undefined;
   amount: number | undefined;
 };
 
@@ -53,7 +53,7 @@ const AddressBox = ({
   wallets: Wallet[];
   walletId: Key;
 } & Omit<React.ComponentProps<typeof CustomSelect>, "items" | "children">) => {
-  const wallet = wallets.find((item) => item.id === Number(walletId));
+  const wallet = wallets.find((item) => item.id === walletId);
   const address = wallet?.address ?? "";
   return (
     <div className="relative flex flex-col w-full border border-border rounded-sm overflow-hidden">
@@ -236,7 +236,7 @@ export default function DepositModal(params: { showTrigger: boolean }) {
                     </div>
 
                     <Form
-                      onSubmit={(e) => void handleSubmit(onSubmit)(e)}
+                      onSubmit={(e) => handleSubmit(onSubmit)(e)}
                       className="flex flex-col gap-4"
                     >
                       <Controller

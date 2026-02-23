@@ -1,3 +1,4 @@
+import Decimal from "decimal.js";
 import { Star } from "lucide-react";
 import AssetImage from "@/components/common/AssetImage";
 import { IconSkeleton } from "@/components/common/IconSkeleton";
@@ -5,7 +6,7 @@ import { Skeleton } from "@/components/common/Skeleton";
 import type { AssetData } from "@/features/assets/types";
 import { useInstrument } from "@/features/trading/hooks/useInstrument";
 import { useRealTimeCandle } from "@/features/trading/hooks/useRealTimeCandle";
-import Decimal from "decimal.js";
+import { formatDecimal } from "@/lib/decimal";
 import { cls } from "@/utils/general.utils";
 
 const AssetListItemSkeleton = () => (
@@ -40,12 +41,11 @@ export const AssetListItem = ({
   const changePercentage = open.isZero()
     ? new Decimal(0)
     : close.minus(open).div(open).mul(100);
-  const priceText = close
-    .toDecimalPlaces(instrument.pricePrecision, Decimal.ROUND_DOWN)
-    .toString();
-  const changeText = `${changePercentage.gt(0) ? "+" : ""}${changePercentage
-    .toDecimalPlaces(2, Decimal.ROUND_DOWN)
-    .toString()}%`;
+  const priceText = formatDecimal(close, instrument.pricePrecision);
+  const changeText = `${changePercentage.gt(0) ? "+" : ""}${formatDecimal(
+    changePercentage,
+    2,
+  )}%`;
 
   return (
     <div

@@ -1,6 +1,7 @@
 "use client";
 
 import { Loader } from "lucide-react";
+
 import { Button, Form } from "react-aria-components";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -20,16 +21,12 @@ export function OtpForm({ username }: { username: string }) {
     intervalMs: 1000,
   });
 
-  const { data, error, isValidating, mutate } = useSWR(
-    `otp:generate`,
+  const { data, isValidating, mutate } = useSWR(
+    "otp:generate",
     async () => {
       const res = await generateOtp({ username });
       if (!res.res.ok) {
-        throw new ApiError({
-          status: res.res.status,
-          code: res.body?.error ?? "REQUEST_FAILED",
-          body: res.body,
-        });
+        return null;
       }
       const text = res.body?.message ?? "OTP sent";
 
@@ -86,7 +83,6 @@ export function OtpForm({ username }: { username: string }) {
     <Form onSubmit={(e) => void handleSubmit(onSubmit)(e)} autoComplete="off">
       <div className="grid grid-cols-1 w-full gap-4">
         {data && <span className="text-sm opacity-50">{data}</span>}
-        {error instanceof ApiError && <span>{error.code}</span>}
         <Controller
           name="otp"
           control={control}

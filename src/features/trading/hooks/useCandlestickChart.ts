@@ -14,8 +14,8 @@ import {
 } from "lightweight-charts";
 import { useCallback, useEffect, useRef } from "react";
 import useSWRInfinite from "swr/infinite";
-import type { Candle } from "@/features/assets/types";
 import { getCandles } from "@/api/multiplexer";
+import type { Candle } from "@/features/assets/types";
 import type { TradingInstrument } from "@/features/trading/types";
 import { chartOptions, seriesOptions } from "@/lib/chart-config";
 import {

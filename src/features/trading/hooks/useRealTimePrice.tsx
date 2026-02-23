@@ -1,9 +1,9 @@
 import { useEffect } from "react";
 import useWebSocket from "react-use-websocket";
 import useSWR, { mutate as swrMutate } from "swr";
+import { getPrice } from "@/api/multiplexer";
 import { useWebsocketBaseUrl } from "@/features/trading/hooks/useWebsocketBaseUrl";
 import { useWsReconnectStatusStore } from "@/stores/useWsReconnectStatusStore";
-import { getPrice } from "@/api/multiplexer";
 
 type PriceMessage = { symbol: string; price: number };
 

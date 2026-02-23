@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/common/Skeleton";
 import { CandlestickChart } from "@/features/trading/components/terminal/CandlestickChart";
 import News from "@/features/trading/components/terminal/News";
 import OrderBook from "@/features/trading/components/terminal/OrderBook";
-import OrderTableTabs from "@/features/trading/components/terminal/OrderTabs/OrderTabs";
+import ActivityTabs from "@/features/trading/components/terminal/ActivityTabs/ActivityTabs";
 import TopBar from "@/features/trading/components/terminal/TopBar";
 import { TradePanel } from "@/features/trading/components/terminal/TradePanel/TradePanel";
 import { useInstrument } from "../hooks/useInstrument";
@@ -68,7 +68,7 @@ export default function TerminalView({
           <TradePanel instrument={instrument} />
         </div>
         <div className="w-full col-span-full">
-          <OrderTableTabs symbol={symbol} />
+          <ActivityTabs symbol={symbol} />
         </div>
       </div>
     </main>

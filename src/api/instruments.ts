@@ -1,5 +1,5 @@
-import type { TradingInstrument } from "@/features/trading/types";
 import { requestJson } from "@/api/http";
+import type { TradingInstrument } from "@/features/trading/types";
 
 export async function fetchInstrument(
   symbol: string,

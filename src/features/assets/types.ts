@@ -8,9 +8,9 @@ export interface AssetData {
 }
 
 export interface UserFavouriteAsset {
-  id: number;
+  id: string;
   symbol: string;
-  userId: number;
+  userId: string;
 }
 
 export interface Candle {

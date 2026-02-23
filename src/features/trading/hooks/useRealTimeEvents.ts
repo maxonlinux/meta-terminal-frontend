@@ -6,23 +6,8 @@ import { wsBaseFromWindow, wsUrl } from "@/lib/ws";
 
 type WsEnvelope = { event: string; data: unknown; ts?: number };
 
-type OrdersEvent = {
-  orders: Array<{ orderId: number; status: string }>;
-};
-
-type BalancesEvent = {
-  asset: string;
-  available: string;
-  locked: string;
-  margin: string;
-};
-
-type LiquidationEvent = {
-  symbol: string;
-  stage: string;
-  price: string;
-  size: string;
-};
+const lastBalanceToastAt = new Map<string, number>();
+const BALANCE_TOAST_DEDUP_MS = 1500;
 
 const TERMINAL_ORDER_STATUSES = new Set([
   "FILLED",
@@ -30,44 +15,6 @@ const TERMINAL_ORDER_STATUSES = new Set([
   "PARTIALLY_FILLED_CANCELED",
   "DEACTIVATED",
 ]);
-
-const isObj = (v: unknown): v is Record<string, unknown> =>
-  typeof v === "object" && v !== null;
-
-function isWsEnvelope(v: unknown): v is WsEnvelope {
-  return isObj(v) && typeof v.event === "string" && "data" in v;
-}
-
-function isBalancesEvent(data: unknown): data is BalancesEvent {
-  return (
-    isObj(data) &&
-    typeof data.asset === "string" &&
-    typeof data.available === "string" &&
-    typeof data.locked === "string" &&
-    typeof data.margin === "string"
-  );
-}
-
-function isOrdersEvent(data: unknown): data is OrdersEvent {
-  if (!isObj(data)) return false;
-  if (!Array.isArray(data.orders)) return false;
-  return data.orders.every(
-    (order) =>
-      isObj(order) &&
-      typeof order.orderId === "number" &&
-      typeof order.status === "string",
-  );
-}
-
-function isLiquidationEvent(data: unknown): data is LiquidationEvent {
-  return (
-    isObj(data) &&
-    typeof data.symbol === "string" &&
-    typeof data.stage === "string" &&
-    typeof data.price === "string" &&
-    typeof data.size === "string"
-  );
-}
 
 export function useRealTimeEvents() {
   const { mutate } = useSWRConfig();
@@ -92,7 +39,13 @@ export function useRealTimeEvents() {
 
   useEffect(() => {
     if (!lastJsonMessage) return;
-    if (!isWsEnvelope(lastJsonMessage)) return;
+    const envelope = lastJsonMessage as WsEnvelope;
+    if (typeof envelope.event !== "string") return;
+
+    if (envelope.event === "orders") {
+      // temporary debug
+      console.log("[ws:orders]", envelope.data);
+    }
 
     const invalidateEngineCaches = () => {
       mutate((key) =>
@@ -104,15 +57,18 @@ export function useRealTimeEvents() {
       );
     };
 
-    const handleBalance = (data: unknown) => {
-      if (!isBalancesEvent(data)) return;
+    const handleBalance = (data: any) => {
       mutate("user:balances");
       mutate(`user:balance:${data.asset}`);
-      toast.success(`Balance updated: ${data.asset}`);
+      const now = Date.now();
+      const last = lastBalanceToastAt.get(data.asset) ?? 0;
+      if (now - last > BALANCE_TOAST_DEDUP_MS) {
+        toast.success(`Balance updated: ${data.asset}`);
+        lastBalanceToastAt.set(data.asset, now);
+      }
     };
 
-    const handleOrders = (data: unknown) => {
-      if (!isOrdersEvent(data)) return;
+    const handleOrders = (data: any) => {
       invalidateEngineCaches();
       let terminalCount = 0;
       for (const order of data.orders) {
@@ -121,20 +77,19 @@ export function useRealTimeEvents() {
       if (terminalCount) toast.success(`Order updated (${terminalCount})`);
     };
 
-    const handleLiquidation = (data: unknown) => {
-      if (!isLiquidationEvent(data)) return;
+    const handleLiquidation = (data: any) => {
       toast.error(`Liquidation: ${data.symbol} ${data.size} @ ${data.price}`);
     };
 
-    switch (lastJsonMessage.event) {
+    switch (envelope.event) {
       case "balances":
-        handleBalance(lastJsonMessage.data);
+        handleBalance(envelope.data as any);
         return;
       case "orders":
-        handleOrders(lastJsonMessage.data);
+        handleOrders(envelope.data as any);
         return;
       case "liquidation":
-        handleLiquidation(lastJsonMessage.data);
+        handleLiquidation(envelope.data as any);
         return;
       default:
         return;

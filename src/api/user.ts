@@ -1,3 +1,4 @@
+import { requestJson } from "@/api/http";
 import type {
   DepositRequestInput,
   FundingRequest,
@@ -9,7 +10,6 @@ import type {
   UserSettings,
   WithdrawRequestInput,
 } from "@/features/user/types";
-import { requestJson } from "@/api/http";
 
 export async function getUserBalances(): Promise<UserBalance[]> {
   const { res, body } = await requestJson<UserBalance[]>(

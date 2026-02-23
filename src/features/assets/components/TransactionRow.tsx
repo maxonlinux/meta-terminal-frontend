@@ -13,6 +13,7 @@ import type {
   FundingStatus,
   FundingType,
 } from "@/features/user/types";
+import { formatTimestamp } from "@/lib/time";
 import { cls } from "@/utils/general.utils";
 
 type Element = {
@@ -56,20 +57,7 @@ function TransactionRow({ transaction }: { transaction: FundingRequest }) {
   const StatusIcon = fundingStatuses[transaction.status].icon;
   const TypeIcon = fundingTypes[transaction.type].icon;
 
-  const formatted = (() => {
-    const raw = transaction.createdAt;
-    const parsed = typeof raw === "string" ? Number(raw) : raw;
-    let ts = Number.isFinite(parsed) ? parsed : Date.parse(String(raw));
-    if (!Number.isFinite(ts)) return "--";
-    if (ts > 1e14) {
-      ts = Math.floor(ts / 1e6);
-    } else if (ts > 1e11) {
-      ts = Math.floor(ts);
-    } else if (ts > 1e9) {
-      ts = Math.floor(ts * 1000);
-    }
-    return new Date(ts).toLocaleString("sv-SE");
-  })();
+  const formatted = formatTimestamp(transaction.createdAt);
   const [datePart, timePart] =
     formatted === "--" ? ["--", "--"] : formatted.split(" ");
 

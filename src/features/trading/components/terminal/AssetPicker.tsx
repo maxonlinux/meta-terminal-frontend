@@ -1,3 +1,4 @@
+import Decimal from "decimal.js";
 import {
   ChevronLeft,
   ChevronRight,
@@ -30,7 +31,7 @@ import type { AssetData } from "@/features/assets/types";
 import { useHorizontalScroll } from "@/features/trading/hooks/useHorizontalScroll";
 import { useInstrument } from "@/features/trading/hooks/useInstrument";
 import { useRealTimeCandle } from "@/features/trading/hooks/useRealTimeCandle";
-import Decimal from "decimal.js";
+import { formatDecimal } from "@/lib/decimal";
 import { cls } from "@/utils/general.utils";
 
 function getParamString(
@@ -78,12 +79,11 @@ const ListItem = ({ asset }: { asset: AssetData }) => {
   const changePercentage = open.isZero()
     ? new Decimal(0)
     : close.minus(open).div(open).mul(100);
-  const priceText = close
-    .toDecimalPlaces(instrument.pricePrecision, Decimal.ROUND_DOWN)
-    .toString();
-  const changeText = `${changePercentage.gt(0) ? "+" : ""}${changePercentage
-    .toDecimalPlaces(2, Decimal.ROUND_DOWN)
-    .toString()}%`;
+  const priceText = formatDecimal(close, instrument.pricePrecision);
+  const changeText = `${changePercentage.gt(0) ? "+" : ""}${formatDecimal(
+    changePercentage,
+    2,
+  )}%`;
 
   return (
     <div className="group-data-focused:bg-neutral-700 group-hover:bg-neutral-700/50 relative flex items-center gap-2 w-full select-none px-1 py-2 rounded-xs">

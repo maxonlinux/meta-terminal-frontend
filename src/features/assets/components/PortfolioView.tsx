@@ -1,13 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
 import Decimal from "decimal.js";
+import { useMemo, useState } from "react";
 import { Tab, TabList, TabPanel, Tabs } from "react-aria-components";
 import defaultTheme from "tailwindcss/defaultTheme";
 import { useIsMounted, useMediaQuery } from "usehooks-ts";
 import { usePriceSymbolMap } from "@/features/assets/hooks/useBaseToSymbolMap";
 import { useUserBalances } from "@/features/user/hooks/useUserBalances";
 import { useUserTransactions } from "@/features/user/hooks/useUserTransactions";
+import { formatDecimal } from "@/lib/decimal";
 import { cls } from "@/utils/general.utils";
 import { AssetsTable } from "./AssetsTable";
 import DepositModal from "./DepositModal";
@@ -112,11 +113,9 @@ export function PortfolioView() {
   const assetsPanel = (
     <div className="flex flex-col gap-1">
       <UnifiedTradingCard
-        totalEquity={totalEquity
-          .toDecimalPlaces(2, Decimal.ROUND_DOWN)
-          .toString()}
-        totalUpnl={totalUpnl.toDecimalPlaces(2, Decimal.ROUND_DOWN).toString()}
-        onOpenTransactions={openTransactions}
+        totalEquity={formatDecimal(totalEquity, 2)}
+        totalUpnl={formatDecimal(totalUpnl, 2)}
+        onOpenTransactionsAction={openTransactions}
       />
 
       <div className="absolute">

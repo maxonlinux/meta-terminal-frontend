@@ -1,3 +1,4 @@
+import { requestJson } from "@/api/http";
 import type {
   TradingCategory,
   TradingFill,
@@ -6,7 +7,6 @@ import type {
   TradingPnL,
   TradingPosition,
 } from "@/features/trading/types";
-import { requestJson } from "@/api/http";
 
 export async function getOpenOrders(params: {
   category: TradingCategory;
@@ -102,7 +102,7 @@ export async function getPositions(): Promise<TradingPosition[]> {
 
 export async function setLeverage(params: {
   symbol: string;
-  leverage: number;
+  leverage: string;
 }) {
   return requestJson<{ message?: string }>(
     `/proxy/main/api/v1/user/positions/leverage?symbol=${params.symbol}`,
@@ -133,7 +133,7 @@ export async function updatePositionTpSl(params: {
 
 export async function createOrder(body: {
   symbol: string;
-  category: TradingCategory;
+  category: string;
   side: string;
   type: string;
   timeInForce: string;
@@ -144,10 +144,20 @@ export async function createOrder(body: {
   closeOnTrigger?: boolean;
   stopOrderType?: string;
 }) {
-  return requestJson<{ id: number }>("/proxy/main/api/v1/user/orders", {
+  return requestJson<{ id: string }>("/proxy/main/api/v1/user/orders", {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
+}
+
+export async function cancelOrder(orderId: string) {
+  return requestJson<{ id: string }>(
+    `/proxy/main/api/v1/user/orders/${orderId}`,
+    {
+      method: "DELETE",
+      credentials: "include",
+    },
+  );
 }

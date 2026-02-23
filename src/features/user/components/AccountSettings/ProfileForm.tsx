@@ -3,7 +3,7 @@ import { Controller, useForm } from "react-hook-form";
 import { CustomTextField } from "@/components/ui/CustomTextField";
 import { useUserProfile } from "@/features/user/hooks/useUserProfile";
 import type { UserProfile } from "@/features/user/types";
-import { SubmitButton } from "../settings/SubmitButton";
+import { SubmitButton } from "@/features/user/components/SubmitButton";
 
 export function ProfileForm({ userProfile }: { userProfile: UserProfile }) {
   const { updateUserProfile } = useUserProfile();

@@ -18,6 +18,7 @@ import type {
   TradingTif,
 } from "@/features/trading/types";
 import { useUserBalance } from "@/features/user/hooks/useUserBalance";
+import { formatDecimal } from "@/lib/decimal";
 import { cls } from "@/utils/general.utils";
 import { MarketSelect } from "./MarketSelect";
 
@@ -102,7 +103,7 @@ export function MarginForm({ instrument }: { instrument: TradingInstrument }) {
 
     const res = await setLeverage({
       symbol: instrument.symbol,
-      leverage: new Decimal(next).toNumber(),
+      leverage: next,
     });
 
     if (!res.res.ok) {
@@ -315,10 +316,7 @@ export function MarginForm({ instrument }: { instrument: TradingInstrument }) {
           >
             {({ userBalance }) => (
               <p className="font-semibold">
-                {new Decimal(userBalance.available)
-                  .toDecimalPlaces(pricePrecision, Decimal.ROUND_DOWN)
-                  .toString()}{" "}
-                {quote}
+                {formatDecimal(userBalance.available, pricePrecision)} {quote}
               </p>
             )}
           </WithSkeleton>
@@ -332,10 +330,7 @@ export function MarginForm({ instrument }: { instrument: TradingInstrument }) {
           >
             {({ userBalance }) => (
               <p className="font-semibold">
-                {new Decimal(userBalance.locked)
-                  .toDecimalPlaces(pricePrecision, Decimal.ROUND_DOWN)
-                  .toString()}{" "}
-                {quote}
+                {formatDecimal(userBalance.locked, pricePrecision)} {quote}
               </p>
             )}
           </WithSkeleton>

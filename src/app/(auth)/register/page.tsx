@@ -1,5 +1,5 @@
-import RegisterForm from "@/features/auth/components/RegisterForm";
 import { getCountryCallingCode } from "@/api/geo";
+import RegisterForm from "@/features/auth/components/RegisterForm";
 
 export default async function Page() {
   const callingCode = await getCountryCallingCode();

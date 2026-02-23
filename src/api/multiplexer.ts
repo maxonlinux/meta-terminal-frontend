@@ -1,5 +1,5 @@
-import type { Candle } from "@/features/assets/types";
 import { requestJson } from "@/api/http";
+import type { Candle } from "@/features/assets/types";
 
 export async function getPrice(symbol: string): Promise<number | null> {
   const { res, body } = await requestJson<number>(

@@ -9,6 +9,7 @@ import { useCandlestickChart } from "@/features/trading/hooks/useCandlestickChar
 import { usePosition } from "@/features/trading/hooks/usePosition";
 import { useUnrealizedPnl } from "@/features/trading/hooks/useUnrealizedPnl";
 import type { TradingInstrument } from "@/features/trading/types";
+import { formatDecimal } from "@/lib/decimal";
 
 const timeFrameButtons = [
   { label: "1m", value: 60 },
@@ -91,6 +92,8 @@ export const CandlestickChart = ({
 
   const [timeFrame, setTimeFrame] = useState(timeFrameButtons[0].value);
   const pricePrecision = instrument ? instrument.pricePrecision : null;
+  const qtyPrecision = instrument ? instrument.quantityPrecision : 8;
+  const qtyDisplayPrecision = Math.max(qtyPrecision, 6);
 
   const { candles, isLoading, setPositionOverlayModel, error } =
     useCandlestickChart(
@@ -119,13 +122,13 @@ export const CandlestickChart = ({
     if (!size.isFinite() || size.isZero()) return null;
 
     const qty = size.abs();
-    const qtyText = qty.isFinite()
-      ? qty.toDecimalPlaces(0, Decimal.ROUND_DOWN).toString()
-      : "--";
+    const qtyText = formatDecimal(qty, qtyDisplayPrecision);
     const pnlText = pnl
       ? (() => {
           const abs = pnl.abs();
-          const txt = abs.toDecimalPlaces(2, Decimal.ROUND_DOWN).toString();
+          const pnlDecimals =
+            pricePrecision && pricePrecision > 6 ? pricePrecision : 6;
+          const txt = formatDecimal(abs, pnlDecimals);
           return pnl.gte(0) ? `P&L +${txt}` : `P&L -${txt}`;
         })()
       : "P&L --";
@@ -135,7 +138,7 @@ export const CandlestickChart = ({
       pnlText,
       qtyText,
     };
-  }, [position, pnl]);
+  }, [position, pnl, pricePrecision, qtyDisplayPrecision]);
 
   useEffect(() => {
     setPositionOverlayModel(overlayModel);

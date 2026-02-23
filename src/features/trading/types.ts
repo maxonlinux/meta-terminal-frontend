@@ -21,8 +21,8 @@ export type TradingStopOrderType =
   | "Stop";
 
 export type TradingOpenOrder = {
-  id: number;
-  userId: number;
+  id: string;
+  userId: string;
   symbol: string;
   category: TradingCategory;
   origin: TradingOrderOrigin;
@@ -46,15 +46,21 @@ export type TradingPosition = {
   symbol: string;
   size: string;
   entryPrice: string;
+  im: string;
+  mm: string;
   leverage: string;
   takeProfit: string;
   stopLoss: string;
   liqPrice: string;
 };
 
+export type TradingPositionWithSide = TradingPosition & {
+  side: "BUY" | "SELL";
+};
+
 export type TradingPnL = {
-  id: number;
-  orderId: number;
+  id: string;
+  orderId: string;
   symbol: string;
   category: TradingCategory;
   side: number;
@@ -67,10 +73,10 @@ export type TradingPnL = {
 export type TradingHistoryOrder = TradingOpenOrder;
 
 export type TradingFill = {
-  id: number;
-  userId: number;
-  orderId: number;
-  counterpartyOrderId: number;
+  id: string;
+  userId: string;
+  orderId: string;
+  counterpartyOrderId: string;
   symbol: string;
   category: TradingCategory;
   side: TradingSide;

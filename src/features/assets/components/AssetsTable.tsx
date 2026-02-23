@@ -1,7 +1,7 @@
 "use client";
 
-import { Search, SlidersHorizontal } from "lucide-react";
 import Decimal from "decimal.js";
+import { Search, SlidersHorizontal } from "lucide-react";
 import { type Dispatch, type SetStateAction, useMemo } from "react";
 import {
   Button,

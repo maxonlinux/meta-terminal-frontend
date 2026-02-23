@@ -1,5 +1,5 @@
-import type { AssetData } from "@/features/assets/types";
 import { requestJson } from "@/api/http";
+import type { AssetData } from "@/features/assets/types";
 
 export async function fetchAssets(): Promise<AssetData[]> {
   const { res, body } = await requestJson<AssetData[]>("/proxy/core/assets", {

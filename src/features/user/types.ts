@@ -1,5 +1,5 @@
 export type Wallet = {
-  id: number;
+  id: string;
   name: string;
   network: string;
   currency: string;
@@ -21,7 +21,7 @@ export type UserPlan = {
 };
 
 export type UserProfile = {
-  id: number;
+  id: string;
   email: string;
   username: string;
   phone: string;
@@ -31,8 +31,8 @@ export type UserProfile = {
 };
 
 export type UserSettings = {
-  id: number;
-  userId: number;
+  id: string;
+  userId: string;
   is2FAEnabled: boolean;
   newsAndOffers: boolean;
   accessToTransactionData: boolean;
@@ -41,8 +41,8 @@ export type UserSettings = {
 };
 
 export type UserAddress = {
-  id: number;
-  userId: number;
+  id: string;
+  userId: string;
   country: string | null;
   city: string | null;
   address: string | null;
@@ -54,8 +54,8 @@ export type FundingStatus = "PENDING" | "COMPLETED" | "CANCELED";
 export type FundingCreatedBy = "USER" | "ADMIN" | "PLATFORM";
 
 export type FundingRequest = {
-  id: number;
-  userId: number;
+  id: string;
+  userId: string;
   type: FundingType;
   status: FundingStatus;
   asset: string;
@@ -77,11 +77,11 @@ export type WithdrawRequestInput = FundingRequestInput & {
 };
 
 export type DepositRequestInput = FundingRequestInput & {
-  walletId: number;
+  walletId: string;
 };
 
 export type KycFile = {
-  id: number;
+  id: string;
   kind: "front" | "back" | "selfie";
   filename: string;
   contentType: string;
@@ -89,8 +89,8 @@ export type KycFile = {
 };
 
 export type KycRequest = {
-  id: number;
-  userId: number;
+  id: string;
+  userId: string;
   docType: string;
   country: string;
   status: "PENDING" | "APPROVED" | "REJECTED";

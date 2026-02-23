@@ -3,8 +3,8 @@
 import { ArrowRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 import { logout } from "@/api/auth";
+import { Button } from "@/components/ui/button";
 
 export function LogoutButton() {
   const router = useRouter();

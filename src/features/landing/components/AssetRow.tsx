@@ -1,7 +1,8 @@
+import Decimal from "decimal.js";
 import AssetImage from "@/components/common/AssetImage";
 import type { AssetData } from "@/features/assets/types";
 import { useRealTimeCandle } from "@/features/trading/hooks/useRealTimeCandle";
-import Decimal from "decimal.js";
+import { formatDecimal } from "@/lib/decimal";
 
 function PriceCell({
   value,
@@ -10,9 +11,7 @@ function PriceCell({
   value: string | number;
   className?: string;
 }) {
-  const text = new Decimal(value)
-    .toDecimalPlaces(8, Decimal.ROUND_DOWN)
-    .toString();
+  const text = formatDecimal(value, 8);
   return (
     <td className={`text-right ${className}`}>
       <span>{text}</span>
@@ -33,9 +32,10 @@ function AssetRow({ asset }: { asset: AssetData }) {
   const percentageDelta = open.isZero()
     ? new Decimal(0)
     : priceDelta.div(open).mul(100);
-  const pctText = `${priceDelta.gt(0) ? "+" : ""}${percentageDelta
-    .toDecimalPlaces(2, Decimal.ROUND_DOWN)
-    .toString()}%`;
+  const pctText = `${priceDelta.gt(0) ? "+" : ""}${formatDecimal(
+    percentageDelta,
+    2,
+  )}%`;
 
   return (
     <tr

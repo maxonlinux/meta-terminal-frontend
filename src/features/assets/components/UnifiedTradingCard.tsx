@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { useQueryState } from "nuqs";
 import { useState } from "react";
-import Decimal from "decimal.js";
+import { formatDecimal } from "@/lib/decimal";
 import { cls } from "@/utils/general.utils";
 
 function DesktopActionButton(props: {
@@ -39,17 +39,13 @@ function DesktopActionButton(props: {
 export function UnifiedTradingCard(props: {
   totalEquity: string;
   totalUpnl: string;
-  onOpenTransactions: () => void;
+  onOpenTransactionsAction: () => void;
 }) {
   const [hideAmounts, setHideAmounts] = useState(false);
   const [, setModal] = useQueryState("modal");
 
-  const equityText = new Decimal(props.totalEquity)
-    .toDecimalPlaces(2, Decimal.ROUND_DOWN)
-    .toString();
-  const upnlText = new Decimal(props.totalUpnl)
-    .toDecimalPlaces(2, Decimal.ROUND_DOWN)
-    .toString();
+  const equityText = formatDecimal(props.totalEquity, 2);
+  const upnlText = formatDecimal(props.totalUpnl, 2);
 
   return (
     <div className="rounded-xs border border-border bg-secondary-background">
@@ -141,7 +137,7 @@ export function UnifiedTradingCard(props: {
             <button
               type="button"
               className="group flex flex-col items-center gap-2 cursor-pointer"
-              onClick={props.onOpenTransactions}
+              onClick={props.onOpenTransactionsAction}
             >
               <div className="size-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-white/10">
                 <ScrollText size={18} className="text-white/80" />
