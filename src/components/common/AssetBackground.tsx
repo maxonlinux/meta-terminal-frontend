@@ -1,48 +1,185 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import type { AssetData } from "@/features/assets/types";
+
+type BitmapSource = ImageBitmap | HTMLCanvasElement | HTMLImageElement;
 
 type ParticleData = {
   asset: AssetData;
-  baseX: number;
-  baseY: number;
+  x: number;
+  y: number;
   size: number;
-  floatDuration: number;
+  floatPhase: number;
+  floatSpeed: number;
   floatAmplitude: number;
-  floatOffset: number;
   color: string;
-  image?: HTMLImageElement;
+  bitmap?: BitmapSource;
   scale: number;
   vx: number;
   vy: number;
+  noiseSeed: number;
   removing?: boolean;
 };
 
+type SizeState = {
+  width: number;
+  height: number;
+  dpr: number;
+};
+
 const INTEGRATION_DT = 0.016;
+const MAX_DPR = 1.5;
+const MAX_PARTICLES = 180;
+const BITMAP_SIZE = 96;
+
+const imageCache = new Map<
+  string,
+  Promise<BitmapSource | null> | BitmapSource | null
+>();
 
 const randomColor = () => {
   const hue = Math.floor(Math.random() * 360);
   return `hsl(${hue}, 70%, 70%)`;
 };
 
-function computeFloatY(p: ParticleData, elapsed: number) {
-  return (
-    Math.sin((elapsed * (2 * Math.PI)) / p.floatDuration + p.floatOffset) *
-    p.floatAmplitude
+const safeDpr = () => Math.min(window.devicePixelRatio || 1, MAX_DPR);
+
+const getTargetCount = (width: number, height: number, density: number) =>
+  Math.min(Math.floor(width * height * density), MAX_PARTICLES);
+
+const getCoverDrawRect = (
+  sourceWidth: number,
+  sourceHeight: number,
+  destSize: number,
+) => {
+  const scale = Math.max(destSize / sourceWidth, destSize / sourceHeight);
+  const drawWidth = sourceWidth * scale;
+  const drawHeight = sourceHeight * scale;
+  return {
+    x: (destSize - drawWidth) / 2,
+    y: (destSize - drawHeight) / 2,
+    width: drawWidth,
+    height: drawHeight,
+  };
+};
+
+const createCircularBitmap = async (
+  image: HTMLImageElement,
+): Promise<BitmapSource> => {
+  const canvas = document.createElement("canvas");
+  canvas.width = BITMAP_SIZE;
+  canvas.height = BITMAP_SIZE;
+  const context = canvas.getContext("2d");
+  if (!context) return image;
+
+  const sourceWidth = image.naturalWidth || image.width;
+  const sourceHeight = image.naturalHeight || image.height;
+  const rect = getCoverDrawRect(sourceWidth, sourceHeight, BITMAP_SIZE);
+
+  context.save();
+  context.beginPath();
+  context.arc(
+    BITMAP_SIZE / 2,
+    BITMAP_SIZE / 2,
+    BITMAP_SIZE / 2,
+    0,
+    Math.PI * 2,
   );
-}
+  context.clip();
+  context.drawImage(image, rect.x, rect.y, rect.width, rect.height);
+  context.restore();
 
-function applyCursorRepel(params: {
-  particle: ParticleData;
-  cursor: { x: number; y: number };
-  repelDistance: number;
-  forceStrength: number;
-}) {
-  const { particle, cursor, repelDistance, forceStrength } = params;
+  if (typeof createImageBitmap === "function") {
+    try {
+      return await createImageBitmap(canvas);
+    } catch {
+      return canvas;
+    }
+  }
 
-  const dx = cursor.x - particle.baseX;
-  const dy = cursor.y - particle.baseY;
+  return canvas;
+};
+
+const loadBitmap = (url?: string): Promise<BitmapSource | null> => {
+  if (!url) return Promise.resolve(null);
+
+  const cached = imageCache.get(url);
+  if (cached instanceof HTMLImageElement) return Promise.resolve(cached);
+  if (cached instanceof HTMLCanvasElement) return Promise.resolve(cached);
+  if (cached instanceof ImageBitmap) return Promise.resolve(cached);
+  if (cached === null) return Promise.resolve(null);
+  if (cached) return cached;
+
+  const promise = new Promise<BitmapSource | null>((resolve) => {
+    const img = new Image();
+    img.decoding = "async";
+    img.onload = async () => {
+      try {
+        const bitmap = await createCircularBitmap(img);
+        resolve(bitmap);
+      } catch {
+        resolve(img);
+      }
+    };
+    img.onerror = () => resolve(null);
+    img.src = `/proxy/core/storage/${url}`;
+
+    if (typeof img.decode === "function") {
+      img.decode().catch(() => {});
+    }
+  }).then((result) => {
+    imageCache.set(url, result);
+    return result;
+  });
+
+  imageCache.set(url, promise);
+  return promise;
+};
+
+const createParticle = (
+  asset: AssetData,
+  width: number,
+  height: number,
+  sizeMin: number,
+  sizeMax: number,
+): ParticleData => {
+  const size = sizeMin + Math.random() * (sizeMax - sizeMin);
+  const duration = 4 + Math.random() * 5;
+  const particle: ParticleData = {
+    asset,
+    x: Math.random() * width,
+    y: Math.random() * height,
+    size,
+    floatPhase: Math.random() * Math.PI * 2,
+    floatSpeed: (Math.PI * 2) / duration,
+    floatAmplitude: 8 + Math.random() * 22,
+    color: randomColor(),
+    scale: 0,
+    vx: 0,
+    vy: 0,
+    noiseSeed: Math.random() * Math.PI * 2,
+  };
+
+  if (asset.image_url) {
+    void loadBitmap(asset.image_url).then((bitmap) => {
+      if (bitmap) particle.bitmap = bitmap;
+    });
+  }
+
+  return particle;
+};
+
+const applyCursorRepel = (
+  particle: ParticleData,
+  cursor: { x: number; y: number; active: boolean },
+  repelDistance: number,
+  forceStrength: number,
+) => {
+  if (!cursor.active) return;
+
+  const dx = cursor.x - particle.x;
+  const dy = cursor.y - particle.y;
   const dist = Math.sqrt(dx * dx + dy * dy);
 
   if (dist < repelDistance && dist > 1) {
@@ -50,122 +187,77 @@ function applyCursorRepel(params: {
     particle.vx += (-dx / dist) * force;
     particle.vy += (-dy / dist) * force;
   }
-}
+};
 
-function applyNoise(p: ParticleData) {
-  p.vx += (Math.random() - 0.5) * 0.6;
-  p.vy += (Math.random() - 0.5) * 0.6;
-}
+const applyFriction = (particle: ParticleData, friction: number, dt: number) => {
+  const factor = Math.pow(friction, dt / INTEGRATION_DT);
+  particle.vx *= factor;
+  particle.vy *= factor;
+};
 
-function applyFriction(p: ParticleData, friction: number) {
-  p.vx *= friction;
-  p.vy *= friction;
-}
-
-function clampSpeed(p: ParticleData, maxSpeed: number) {
-  const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+const clampSpeed = (particle: ParticleData, maxSpeed: number) => {
+  const speed = Math.sqrt(particle.vx * particle.vx + particle.vy * particle.vy);
   if (speed > maxSpeed) {
-    p.vx = (p.vx / speed) * maxSpeed;
-    p.vy = (p.vy / speed) * maxSpeed;
+    particle.vx = (particle.vx / speed) * maxSpeed;
+    particle.vy = (particle.vy / speed) * maxSpeed;
   }
-}
+};
 
-function integrate(p: ParticleData, dt: number) {
-  p.baseX += p.vx * dt;
-  p.baseY += p.vy * dt;
-}
+const integrate = (particle: ParticleData, dt: number) => {
+  particle.x += particle.vx * dt;
+  particle.y += particle.vy * dt;
+};
 
-function bounceOffEdges(
-  p: ParticleData,
+const bounceOffEdges = (
+  particle: ParticleData,
   bounds: { width: number; height: number },
-) {
-  const half = p.size / 2;
-  if (p.baseX < half || p.baseX > bounds.width - half) p.vx = -p.vx;
-  if (p.baseY < half || p.baseY > bounds.height - half) p.vy = -p.vy;
-}
-
-function updateScale(p: ParticleData): boolean {
-  if (p.removing) {
-    p.scale -= 0.05;
-    return p.scale <= 0;
+) => {
+  const half = particle.size / 2;
+  if (particle.x < half || particle.x > bounds.width - half) {
+    particle.vx = -particle.vx;
   }
-  p.scale += (1 - p.scale) * 0.05;
-  return false;
-}
+  if (particle.y < half || particle.y > bounds.height - half) {
+    particle.vy = -particle.vy;
+  }
+};
 
-function drawParticle(
+const updateScale = (particle: ParticleData, dt: number): boolean => {
+  if (particle.removing) {
+    particle.scale -= dt * 2.4;
+    return particle.scale <= 0;
+  }
+  particle.scale += (1 - particle.scale) * 0.08;
+  return false;
+};
+
+const drawParticle = (
   context: CanvasRenderingContext2D,
-  p: ParticleData,
+  particle: ParticleData,
   x: number,
   y: number,
   scaledSize: number,
-) {
-  if (p.image) {
-    context.save();
-    context.beginPath();
-    context.arc(x, y, scaledSize / 2, 0, Math.PI * 2);
-    context.closePath();
-    context.clip();
+) => {
+  if (particle.bitmap) {
     context.drawImage(
-      p.image,
+      particle.bitmap,
       x - scaledSize / 2,
       y - scaledSize / 2,
       scaledSize,
       scaledSize,
     );
-    context.restore();
     return;
   }
 
   context.beginPath();
   context.arc(x, y, scaledSize / 2, 0, 2 * Math.PI);
-  context.fillStyle = p.color;
+  context.fillStyle = particle.color;
   context.fill();
 
   context.fillStyle = "white";
   context.font = `${Math.floor(scaledSize / 2)}px sans-serif`;
   context.textAlign = "center";
   context.textBaseline = "middle";
-  context.fillText(p.asset.symbol[0]?.toUpperCase() ?? "?", x, y + 1);
-}
-
-const preloadImage = (url?: string): Promise<HTMLImageElement | null> =>
-  new Promise((resolve) => {
-    if (!url) return resolve(null);
-
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => resolve(null);
-    img.src = `/proxy/core/storage/${url}`;
-  });
-
-const createParticle = async (
-  asset: AssetData,
-  width: number,
-  height: number,
-  sizeMin: number,
-  sizeMax: number,
-): Promise<ParticleData> => {
-  const particle: ParticleData = {
-    asset,
-    baseX: Math.random() * width,
-    baseY: Math.random() * height,
-    size: sizeMin + Math.random() * (sizeMax - sizeMin),
-    floatDuration: 4 + Math.random() * 4,
-    floatAmplitude: 10 + Math.random() * 20,
-    floatOffset: Math.random() * 2 * Math.PI,
-    color: randomColor(),
-    scale: 0,
-    vx: 0,
-    vy: 0,
-  };
-
-  if (asset.image_url) {
-    const img = await preloadImage(asset.image_url);
-    particle.image = img || undefined;
-  }
-
-  return particle;
+  context.fillText(particle.asset.symbol[0]?.toUpperCase() ?? "?", x, y + 1);
 };
 
 export default function AssetBackground({
@@ -182,86 +274,65 @@ export default function AssetBackground({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const particlesRef = useRef<ParticleData[]>([]);
-  const cursorRef = useRef({ x: -1000, y: -1000 });
-  const [size, setSize] = useState({ width: 0, height: 0 });
+  const cursorRef = useRef({ x: -1000, y: -1000, active: false });
+  const sizeRef = useRef<SizeState>({ width: 0, height: 0, dpr: 1 });
+  const frameBufferRef = useRef<HTMLCanvasElement | null>(null);
 
   const updateParticles = useCallback(
-    async (width: number, height: number) => {
-      const targetCount = Math.floor(width * height * density);
+    (width: number, height: number) => {
+      if (assets.length === 0) return;
+
+      const targetCount = getTargetCount(width, height, density);
       const currentCount = particlesRef.current.length;
 
       if (targetCount > currentCount) {
         const numToAdd = targetCount - currentCount;
-
-        for (let i = 0; i < numToAdd; i++) {
+        const newParticles = Array.from({ length: numToAdd }, () => {
           const asset = assets[Math.floor(Math.random() * assets.length)];
-          const particle = await createParticle(
-            asset,
-            width,
-            height,
-            sizeMin,
-            sizeMax,
-          );
-          // Push only *after* image loaded or failed:
-          particlesRef.current.push(particle);
-        }
-      } else if (targetCount < currentCount) {
-        particlesRef.current.slice(targetCount).forEach((p) => {
-          p.removing = true;
+          return createParticle(asset, width, height, sizeMin, sizeMax);
+        });
+        particlesRef.current.push(...newParticles);
+        return;
+      }
+
+      if (targetCount < currentCount) {
+        particlesRef.current.slice(targetCount).forEach((particle) => {
+          particle.removing = true;
         });
       }
     },
     [assets, density, sizeMin, sizeMax],
   );
 
-  // Initial creation
   useEffect(() => {
-    if (!containerRef.current) return;
-    const { width, height } = containerRef.current.getBoundingClientRect();
+    const node = containerRef.current;
+    if (!node) return;
 
-    setSize({ width, height });
-    void updateParticles(width, height);
-  }, [updateParticles]);
-
-  // Smooth resize handling with graceful removal
-  useEffect(() => {
-    const handleResize = () => {
-      if (!containerRef.current) return;
-      const { width: newWidth, height: newHeight } =
-        containerRef.current.getBoundingClientRect();
-
-      const scaleX = newWidth / size.width;
-      const scaleY = newHeight / size.height;
-
-      particlesRef.current.forEach((p) => {
-        p.baseX *= scaleX;
-        p.baseY *= scaleY;
-      });
-
-      setSize({ width: newWidth, height: newHeight });
-      void updateParticles(newWidth, newHeight);
+    const handlePointerMove = (event: PointerEvent) => {
+      const rect = node.getBoundingClientRect();
+      cursorRef.current = {
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top,
+        active: true,
+      };
     };
 
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, [size, updateParticles]);
-
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!containerRef.current) return;
-      const rect = containerRef.current.getBoundingClientRect();
-      cursorRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    const handlePointerLeave = () => {
+      cursorRef.current = { x: -1000, y: -1000, active: false };
     };
-    window.addEventListener("mousemove", handleMouseMove);
-    return () => window.removeEventListener("mousemove", handleMouseMove);
+
+    node.addEventListener("pointermove", handlePointerMove, { passive: true });
+    node.addEventListener("pointerleave", handlePointerLeave, { passive: true });
+    return () => {
+      node.removeEventListener("pointermove", handlePointerMove);
+      node.removeEventListener("pointerleave", handlePointerLeave);
+    };
   }, []);
 
-  // Animation loop with appear and disappear animations
   useEffect(() => {
-    let animationFrameId: number;
-
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    const container = containerRef.current;
+    if (!canvas || !container) return;
 
     const context = canvas.getContext("2d");
     if (!context) return;
@@ -269,49 +340,140 @@ export default function AssetBackground({
     context.imageSmoothingEnabled = true;
     context.imageSmoothingQuality = "high";
 
-    const repelDistance = 150;
-    const forceStrength = 80;
-    const maxSpeed = 60;
-    const friction = 0.85;
-    const startTime = performance.now();
+    const resize = (width: number, height: number) => {
+      const prev = sizeRef.current;
+      if (width === prev.width && height === prev.height && prev.dpr === safeDpr()) {
+        return;
+      }
+
+      if (prev.width > 0 && prev.height > 0) {
+        if (!frameBufferRef.current) {
+          frameBufferRef.current = document.createElement("canvas");
+        }
+        const buffer = frameBufferRef.current;
+        buffer.width = canvas.width;
+        buffer.height = canvas.height;
+        const bufferContext = buffer.getContext("2d");
+        if (bufferContext) {
+          bufferContext.setTransform(1, 0, 0, 1, 0, 0);
+          bufferContext.clearRect(0, 0, buffer.width, buffer.height);
+          bufferContext.drawImage(canvas, 0, 0);
+        }
+      }
+
+      const dpr = safeDpr();
+      sizeRef.current = { width, height, dpr };
+      canvas.width = Math.floor(width * dpr);
+      canvas.height = Math.floor(height * dpr);
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+      context.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      const buffer = frameBufferRef.current;
+      if (buffer) {
+        context.clearRect(0, 0, width, height);
+        context.drawImage(buffer, 0, 0, width, height);
+      }
+
+      updateParticles(width, height);
+    };
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      const { width, height } = entry.contentRect;
+      resize(width, height);
+    });
+
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [updateParticles]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const context = canvas.getContext("2d");
+    if (!context) return;
+
+    let animationFrameId = 0;
+    let lastTime = performance.now();
+
+    const reduceMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+
+    const repelDistance = 140;
+    const forceStrength = 75;
+    const maxSpeed = 70;
+    const friction = 0.88;
 
     const animate = (time: number) => {
-      const elapsed = (time - startTime) / 1000;
-      context.clearRect(0, 0, size.width, size.height);
+      const { width, height } = sizeRef.current;
+      if (width === 0 || height === 0) {
+        animationFrameId = requestAnimationFrame(animate);
+        return;
+      }
 
+      const dt = Math.min((time - lastTime) / 1000, 0.05);
+      lastTime = time;
+
+      context.clearRect(0, 0, width, height);
+
+      const elapsed = time / 1000;
       for (let i = particlesRef.current.length - 1; i >= 0; i--) {
-        const p = particlesRef.current[i];
-        const floatY = computeFloatY(p, elapsed);
+        const particle = particlesRef.current[i];
+        const floatY =
+          Math.sin(elapsed * particle.floatSpeed + particle.floatPhase) *
+          particle.floatAmplitude;
 
-        applyCursorRepel({
-          particle: p,
-          cursor: cursorRef.current,
+        applyCursorRepel(
+          particle,
+          cursorRef.current,
           repelDistance,
           forceStrength,
-        });
-        applyNoise(p);
-        applyFriction(p, friction);
-        clampSpeed(p, maxSpeed);
-        integrate(p, INTEGRATION_DT);
-        bounceOffEdges(p, size);
+        );
 
-        if (updateScale(p)) {
+        particle.vx += Math.sin(elapsed + particle.noiseSeed) * 0.06;
+        particle.vy += Math.cos(elapsed * 0.9 + particle.noiseSeed) * 0.06;
+
+        applyFriction(particle, friction, dt);
+        clampSpeed(particle, maxSpeed);
+        integrate(particle, dt);
+        bounceOffEdges(particle, { width, height });
+
+        if (updateScale(particle, dt)) {
           particlesRef.current.splice(i, 1);
           continue;
         }
 
-        const scaledSize = p.size * p.scale;
-        const x = p.baseX;
-        const y = p.baseY + floatY;
-        drawParticle(context, p, x, y, scaledSize);
+        const scaledSize = particle.size * particle.scale;
+        drawParticle(context, particle, particle.x, particle.y + floatY, scaledSize);
       }
 
       animationFrameId = requestAnimationFrame(animate);
     };
 
-    animationFrameId = requestAnimationFrame(animate);
+    if (!reduceMotion) {
+      animationFrameId = requestAnimationFrame(animate);
+    } else {
+      const { width, height } = sizeRef.current;
+      if (width > 0 && height > 0) {
+        context.clearRect(0, 0, width, height);
+        particlesRef.current.forEach((particle) => {
+          const scaledSize = particle.size * Math.max(particle.scale, 0.6);
+          drawParticle(context, particle, particle.x, particle.y, scaledSize);
+        });
+      }
+    }
+
     return () => cancelAnimationFrame(animationFrameId);
-  }, [size]);
+  }, []);
+
+  useEffect(() => {
+    const { width, height } = sizeRef.current;
+    if (width === 0 || height === 0) return;
+    updateParticles(width, height);
+  }, [updateParticles]);
 
   return (
     <div
@@ -320,8 +482,6 @@ export default function AssetBackground({
     >
       <canvas
         ref={canvasRef}
-        width={size.width}
-        height={size.height}
         style={{ position: "absolute", top: 0, left: 0, pointerEvents: "none" }}
       />
     </div>
