@@ -63,9 +63,9 @@ export async function logout() {
 
 export async function impersonate(token: string) {
   return requestJson<{ token?: string; error?: string }>(
-    `/auth/impersonate/${token}`,
+    `/proxy/main/api/v1/auth/impersonate/${token}`,
     {
-      method: "POST",
+      method: "GET",
       credentials: "include",
     },
   );
