@@ -28,8 +28,8 @@ const HeadItem = ({ text, value }: { text: string; value: number }) => (
 );
 
 const OHLC = ({ candles }: { candles: CandlestickData<Time>[][] }) => {
-  const lastCandlesBatch = candles[candles.length - 1];
-  const lastCandle = lastCandlesBatch[lastCandlesBatch.length - 1];
+  const latestBatch = candles[0] ?? [];
+  const lastCandle = latestBatch[latestBatch.length - 1];
 
   return (
     <div className="relative flex gap-3 p-2 items-center text-[12px]">
