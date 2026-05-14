@@ -1,27 +1,69 @@
 "use client";
 
 import { ExternalLink, Sparkles, X } from "lucide-react";
-import { useState } from "react";
-
-type Announcement = {
-  text: string;
-  link: string;
-};
+import { useEffect, useMemo, useState } from "react";
+import {
+  type Announcement as AnnouncementItem,
+  dismissAnnouncement,
+  getUserAnnouncements,
+} from "@/api/announcements";
 
 const Announcement = () => {
-  const [isClosed, setIsClosed] = useState(false);
-  const announcement = {
-    text: "BTCUSD, ETHUSD and ETHUSD to be DELISTED effective 10/21/2025. Please use USDT pairs instead.",
-    link: "https://google.com",
-  };
+  const [items, setItems] = useState<AnnouncementItem[]>([]);
+  const [index, setIndex] = useState(0);
 
-  if (isClosed) {
+  const idsKey = useMemo(() => items.map((x) => x.id).join(","), [items]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const pull = async () => {
+      const next = await getUserAnnouncements();
+      if (!isMounted) {
+        return;
+      }
+      const nextIds = next.map((x) => x.id).join(",");
+      if (nextIds !== idsKey) {
+        setItems(next);
+        setIndex(0);
+      }
+    };
+
+    void pull();
+    const timer = setInterval(() => {
+      void pull();
+    }, 60_000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(timer);
+    };
+  }, [idsKey]);
+
+  const current = items[index];
+
+  if (!current) {
     return null;
   }
 
+  const closeCurrent = async () => {
+    const currentId = current.id;
+    await dismissAnnouncement(currentId);
+    setItems((prev) => {
+      const filtered = prev.filter((x) => x.id !== currentId);
+      if (filtered.length === 0) {
+        return [];
+      }
+      if (index >= filtered.length) {
+        setIndex(filtered.length - 1);
+      }
+      return filtered;
+    });
+  };
+
   return (
-    <div className="fixed z-50 top-0 right-0 m-4">
-      <div className="relative flex flex-col rounded-md py-2 px-3 w-full bg-accent text-white">
+    <div className="fixed z-50 top-3 right-3 sm:top-4 sm:right-4">
+      <div className="relative flex flex-col rounded-md py-2.5 px-3.5 w-[min(92vw,28rem)] bg-accent text-white shadow-lg border border-white/15">
         <div className="flex items-center justify-between mb-2">
           <span className="flex items-center gap-1 font-bold text-sm">
             <Sparkles size={14} /> Announcement
@@ -29,24 +71,48 @@ const Announcement = () => {
           <button
             type="button"
             className="flex items-center justify-center cursor-pointer"
-            onClick={() => {
-              setIsClosed(true);
-            }}
+            onClick={closeCurrent}
           >
             <span className="text-xs">
               <X size={14} />
             </span>
           </button>
         </div>
-        <p className="text-sm">{announcement.text}</p>
-        <a
-          className="text-sm underline underline-offset-2"
-          target="_blank"
-          href={announcement.link}
-          rel="noreferrer"
-        >
-          Learn more <ExternalLink className="inline-block mr-1" size={14} />
-        </a>
+        <p className="text-sm font-semibold mb-1 leading-snug">{current.title}</p>
+        <p className="text-sm leading-snug">{current.body}</p>
+        {current.link && (
+          <a
+            className="text-sm underline underline-offset-2"
+            target="_blank"
+            href={current.link}
+            rel="noreferrer"
+          >
+            Learn more <ExternalLink className="inline-block mr-1" size={14} />
+          </a>
+        )}
+        <div className="mt-2.5 flex items-center justify-between gap-2">
+          <div className="text-xs opacity-80">
+            {index + 1} of {items.length}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="px-2 py-1 text-xs border border-white/30 rounded disabled:opacity-40"
+              disabled={index === 0}
+              onClick={() => setIndex((v) => Math.max(0, v - 1))}
+            >
+              Prev
+            </button>
+            <button
+              type="button"
+              className="px-2 py-1 text-xs border border-white/30 rounded disabled:opacity-40"
+              disabled={index >= items.length - 1}
+              onClick={() => setIndex((v) => Math.min(items.length - 1, v + 1))}
+            >
+              Next
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
