@@ -4,7 +4,6 @@ import { ExternalLink, Sparkles, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
   type Announcement as AnnouncementItem,
-  dismissAnnouncement,
   getUserAnnouncements,
 } from "@/api/announcements";
 
@@ -46,9 +45,8 @@ const Announcement = () => {
     return null;
   }
 
-  const closeCurrent = async () => {
+  const closeCurrent = () => {
     const currentId = current.id;
-    await dismissAnnouncement(currentId);
     setItems((prev) => {
       const filtered = prev.filter((x) => x.id !== currentId);
       if (filtered.length === 0) {

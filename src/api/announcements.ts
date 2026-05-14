@@ -23,14 +23,3 @@ export async function getUserAnnouncements(): Promise<Announcement[]> {
   }
   return body;
 }
-
-export async function dismissAnnouncement(id: string): Promise<boolean> {
-  const { res } = await requestJson<null>(
-    `/proxy/main/api/v1/user/announcements/${id}/dismiss`,
-    {
-      method: "POST",
-      credentials: "include",
-    },
-  );
-  return res.ok;
-}
