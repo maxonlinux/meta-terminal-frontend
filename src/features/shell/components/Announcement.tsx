@@ -7,11 +7,41 @@ import {
   getUserAnnouncements,
 } from "@/api/announcements";
 
+const DISMISSED_KEY = "announcement:dismissed-local";
+
+function readDismissedIds(): string[] {
+  if (typeof window === "undefined") {
+    return [];
+  }
+  try {
+    const raw = window.localStorage.getItem(DISMISSED_KEY);
+    if (!raw) {
+      return [];
+    }
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeDismissedIds(ids: string[]) {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.localStorage.setItem(DISMISSED_KEY, JSON.stringify(ids));
+}
+
 const Announcement = () => {
   const [items, setItems] = useState<AnnouncementItem[]>([]);
+  const [dismissedIds, setDismissedIds] = useState<string[]>([]);
   const [index, setIndex] = useState(0);
 
   const idsKey = useMemo(() => items.map((x) => x.id).join(","), [items]);
+
+  useEffect(() => {
+    setDismissedIds(readDismissedIds());
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -21,9 +51,11 @@ const Announcement = () => {
       if (!isMounted) {
         return;
       }
-      const nextIds = next.map((x) => x.id).join(",");
+      const hidden = new Set(dismissedIds);
+      const visible = next.filter((x) => !hidden.has(x.id));
+      const nextIds = visible.map((x) => x.id).join(",");
       if (nextIds !== idsKey) {
-        setItems(next);
+        setItems(visible);
         setIndex(0);
       }
     };
@@ -37,7 +69,7 @@ const Announcement = () => {
       isMounted = false;
       clearInterval(timer);
     };
-  }, [idsKey]);
+  }, [idsKey, dismissedIds]);
 
   const current = items[index];
 
@@ -47,6 +79,14 @@ const Announcement = () => {
 
   const closeCurrent = () => {
     const currentId = current.id;
+    setDismissedIds((prev) => {
+      if (prev.includes(currentId)) {
+        return prev;
+      }
+      const next = [...prev, currentId];
+      writeDismissedIds(next);
+      return next;
+    });
     setItems((prev) => {
       const filtered = prev.filter((x) => x.id !== currentId);
       if (filtered.length === 0) {
